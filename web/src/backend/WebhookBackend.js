@@ -24,6 +24,33 @@ export function getWebhooks(owner, organization, page = "", pageSize = "", field
   }).then(res => res.json());
 }
 
+export function getWebhookEvents(owner = "", organization = "", webhookName = "", status = "") {
+  const params = new URLSearchParams({
+    owner,
+    organization,
+    webhookName,
+    status,
+  });
+
+  return fetch(`${Setting.ServerUrl}/api/get-webhook-events?${params.toString()}`, {
+    method: "GET",
+    credentials: "include",
+    headers: {
+      "Accept-Language": Setting.getAcceptLanguage(),
+    },
+  }).then(res => res.json());
+}
+
+export function replayWebhookEvent(eventId) {
+  return fetch(`${Setting.ServerUrl}/api/replay-webhook-event?id=${encodeURIComponent(eventId)}`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Accept-Language": Setting.getAcceptLanguage(),
+    },
+  }).then(res => res.json());
+}
+
 export function getWebhook(owner, name) {
   return fetch(`${Setting.ServerUrl}/api/get-webhook?id=${owner}/${encodeURIComponent(name)}`, {
     method: "GET",
