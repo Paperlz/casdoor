@@ -383,7 +383,7 @@ function ManagementPage(props) {
         Setting.getItem(<Link to="/forms">{i18next.t("general:Forms")}</Link>, "/forms"),
         Setting.getItem(<Link to="/syncers">{i18next.t("general:Syncers")}</Link>, "/syncers"),
         Setting.getItem(<Link to="/webhooks">{i18next.t("general:Webhooks")}</Link>, "/webhooks"),
-        Setting.getItem(<Link to="/webhook-events">Webhook Events</Link>, "/webhook-events"),
+        Setting.getItem(<Link to="/webhook-events">{i18next.t("general:Webhook Events")}</Link>, "/webhook-events"),
         Setting.getItem(<Link to="/tickets">{i18next.t("general:Tickets")}</Link>, "/tickets"),
         Setting.getItem(<a target="_blank" rel="noreferrer" href={Setting.isLocalhost() ? `${Setting.ServerUrl}/swagger` : "/swagger"}>{i18next.t("general:Swagger")}</a>, "/swagger")]));
     } else {
@@ -391,7 +391,7 @@ function ManagementPage(props) {
         Setting.getItem(<Link to="/forms">{i18next.t("general:Forms")}</Link>, "/forms"),
         Setting.getItem(<Link to="/syncers">{i18next.t("general:Syncers")}</Link>, "/syncers"),
         Setting.getItem(<Link to="/webhooks">{i18next.t("general:Webhooks")}</Link>, "/webhooks"),
-        Setting.getItem(<Link to="/webhook-events">Webhook Events</Link>, "/webhook-events"),
+        Setting.getItem(<Link to="/webhook-events">{i18next.t("general:Webhook Events")}</Link>, "/webhook-events"),
         Setting.getItem(<Link to="/tickets">{i18next.t("general:Tickets")}</Link>, "/tickets")]));
     }
 

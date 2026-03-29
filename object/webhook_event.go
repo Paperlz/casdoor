@@ -1,4 +1,4 @@
-// Copyright 2021 The Casdoor Authors. All Rights Reserved.
+// Copyright 2026 The Casdoor Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -114,6 +114,25 @@ func GetWebhookEvents(owner, organization, webhookName string, status WebhookEve
 	}
 
 	return events, nil
+}
+
+func GetWebhookEventCount(owner, organization, webhookName string, status WebhookEventStatus) (int64, error) {
+	session := ormer.Engine.Where("1 = 1")
+
+	if owner != "" {
+		session = session.Where("owner = ?", owner)
+	}
+	if organization != "" {
+		session = session.Where("organization = ?", organization)
+	}
+	if webhookName != "" {
+		session = session.Where("webhook_name = ?", webhookName)
+	}
+	if status != "" {
+		session = session.Where("status = ?", status)
+	}
+
+	return session.Count(&WebhookEvent{})
 }
 
 func GetPendingWebhookEvents(limit int) ([]*WebhookEvent, error) {

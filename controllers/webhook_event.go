@@ -1,4 +1,4 @@
-// Copyright 2021 The Casdoor Authors. All Rights Reserved.
+// Copyright 2026 The Casdoor Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,9 +17,12 @@ package controllers
 import (
 	"encoding/json"
 
+	"github.com/beego/beego/v2/core/utils/pagination"
 	"github.com/casdoor/casdoor/object"
 	"github.com/casdoor/casdoor/util"
 )
+
+const defaultWebhookEventListLimit = 100
 
 // GetWebhookEvents
 // @Title GetWebhookEvents
@@ -39,26 +42,29 @@ func (c *ApiController) GetWebhookEvents() {
 	limit := c.Ctx.Input.Query("pageSize")
 	page := c.Ctx.Input.Query("p")
 
-	var offset int
-	var limitInt int
-
 	if limit != "" && page != "" {
-		limitInt = util.ParseInt(limit)
-		pageInt := util.ParseInt(page)
-		offset = (pageInt - 1) * limitInt
-	}
+		limit := util.ParseInt(limit)
+		count, err := object.GetWebhookEventCount(owner, organization, webhookName, object.WebhookEventStatus(status))
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
 
-	events, err := object.GetWebhookEvents(owner, organization, webhookName, object.WebhookEventStatus(status), offset, limitInt)
-	if err != nil {
-		c.ResponseError(err.Error())
-		return
-	}
+		paginator := pagination.NewPaginator(c.Ctx.Request, limit, count)
+		events, err := object.GetWebhookEvents(owner, organization, webhookName, object.WebhookEventStatus(status), paginator.Offset(), limit)
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
 
-	if limit != "" && page != "" {
-		// For pagination, we'd need to add a count function
-		// For now, just return the events
-		c.ResponseOk(events)
+		c.ResponseOk(events, paginator.Nums())
 	} else {
+		events, err := object.GetWebhookEvents(owner, organization, webhookName, object.WebhookEventStatus(status), 0, defaultWebhookEventListLimit)
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
+
 		c.ResponseOk(events)
 	}
 }

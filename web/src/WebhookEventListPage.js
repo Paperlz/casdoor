@@ -17,7 +17,7 @@ import {Link} from "react-router-dom";
 import {Button, Descriptions, Drawer, Result, Table, Tag, Tooltip} from "antd";
 import i18next from "i18next";
 import * as Setting from "./Setting";
-import * as WebhookBackend from "./backend/WebhookBackend";
+import * as WebhookEventBackend from "./backend/WebhookEventBackend";
 import Editor from "./common/Editor";
 
 class WebhookEventListPage extends React.Component {
@@ -35,13 +35,14 @@ class WebhookEventListPage extends React.Component {
         pageSize: 10,
         showQuickJumper: true,
         showSizeChanger: true,
+        total: 0,
       },
     };
   }
 
   componentDidMount() {
     window.addEventListener("storageOrganizationChanged", this.handleOrganizationChange);
-    this.fetchWebhookEvents();
+    this.fetchWebhookEvents(this.state.pagination);
   }
 
   componentWillUnmount() {
@@ -49,7 +50,11 @@ class WebhookEventListPage extends React.Component {
   }
 
   handleOrganizationChange = () => {
-    this.fetchWebhookEvents();
+    const pagination = {
+      ...this.state.pagination,
+      current: 1,
+    };
+    this.fetchWebhookEvents(pagination);
   };
 
   getStatusTag = (status) => {
@@ -89,21 +94,21 @@ class WebhookEventListPage extends React.Component {
     return Setting.isDefaultOrganizationSelected(this.props.account) ? "" : Setting.getRequestOrganization(this.props.account);
   };
 
-  fetchWebhookEvents = () => {
+  fetchWebhookEvents = (pagination = this.state.pagination) => {
     this.setState({loading: true});
 
-    WebhookBackend.getWebhookEvents("", this.getOrganizationFilter())
+    WebhookEventBackend.getWebhookEvents("", this.getOrganizationFilter(), pagination.current, pagination.pageSize)
       .then((res) => {
         this.setState({loading: false});
 
         if (res.status === "ok") {
-          this.setState((prevState) => ({
+          this.setState({
             data: res.data || [],
             pagination: {
-              ...prevState.pagination,
-              total: res.data?.length || 0,
+              ...pagination,
+              total: res.data2 ?? 0,
             },
-          }));
+          });
         } else if (Setting.isResponseDenied(res)) {
           this.setState({isAuthorized: false});
         } else {
@@ -120,13 +125,13 @@ class WebhookEventListPage extends React.Component {
     const eventId = `${event.owner}/${event.name}`;
     this.setState({replayingId: eventId});
 
-    WebhookBackend.replayWebhookEvent(eventId)
+    WebhookEventBackend.replayWebhookEvent(eventId)
       .then((res) => {
         this.setState({replayingId: ""});
 
         if (res.status === "ok") {
-          Setting.showMessage("success", typeof res.data === "string" ? res.data : "Webhook event replayed successfully");
-          this.fetchWebhookEvents();
+          Setting.showMessage("success", typeof res.data === "string" ? res.data : i18next.t("webhook:Webhook event replayed successfully"));
+          this.fetchWebhookEvents(this.state.pagination);
         } else {
           Setting.showMessage("error", `${i18next.t("general:Failed to save")}: ${res.msg}`);
         }
@@ -138,7 +143,7 @@ class WebhookEventListPage extends React.Component {
   };
 
   handleTableChange = (pagination) => {
-    this.setState({pagination});
+    this.fetchWebhookEvents(pagination);
   };
 
   openDetailDrawer = (record) => {
@@ -178,7 +183,7 @@ class WebhookEventListPage extends React.Component {
   renderTable = () => {
     const columns = [
       {
-        title: "Webhook Name",
+        title: i18next.t("webhook:Webhook Name"),
         dataIndex: "webhookName",
         key: "webhookName",
         width: 220,
@@ -192,28 +197,28 @@ class WebhookEventListPage extends React.Component {
         render: (text) => text ? <Link to={`/organizations/${text}`}>{text}</Link> : "-",
       },
       {
-        title: "Status",
+        title: i18next.t("webhook:Status"),
         dataIndex: "status",
         key: "status",
         width: 140,
         filters: [
-          {text: "Pending", value: "pending"},
-          {text: "Success", value: "success"},
-          {text: "Failed", value: "failed"},
-          {text: "Retrying", value: "retrying"},
+          {text: i18next.t("webhook:Pending"), value: "pending"},
+          {text: i18next.t("webhook:Success"), value: "success"},
+          {text: i18next.t("webhook:Failed"), value: "failed"},
+          {text: i18next.t("webhook:Retrying"), value: "retrying"},
         ],
         onFilter: (value, record) => record.status === value,
         render: (text) => this.getStatusTag(text),
       },
       {
-        title: "Attempt Count",
+        title: i18next.t("webhook:Attempt Count"),
         dataIndex: "attemptCount",
         key: "attemptCount",
         width: 140,
         sorter: (a, b) => (a.attemptCount || 0) - (b.attemptCount || 0),
       },
       {
-        title: "Next Retry Time",
+        title: i18next.t("webhook:Next Retry Time"),
         dataIndex: "nextRetryTime",
         key: "nextRetryTime",
         width: 180,
@@ -239,14 +244,14 @@ class WebhookEventListPage extends React.Component {
                 style={{paddingLeft: 0}}
                 onClick={() => this.openDetailDrawer(record)}
               >
-                View
+                {i18next.t("general:View")}
               </Button>
               <Button
                 type="primary"
                 loading={this.state.replayingId === eventId}
                 onClick={() => this.replayWebhookEvent(record)}
               >
-                Replay
+                {i18next.t("webhook:Replay")}
               </Button>
             </>
           );
@@ -267,7 +272,7 @@ class WebhookEventListPage extends React.Component {
         scroll={{x: "max-content"}}
         size="middle"
         bordered
-        title={() => "Webhook Event Logs"}
+        title={() => i18next.t("webhook:Webhook Event Logs")}
         onChange={this.handleTableChange}
       />
     );
@@ -278,7 +283,7 @@ class WebhookEventListPage extends React.Component {
       return (
         <Result
           status="403"
-          title="403 Unauthorized"
+          title={`403 ${i18next.t("general:Unauthorized")}`}
           subTitle={i18next.t("general:Sorry, you do not have permission to access this page or logged in status invalid.")}
           extra={<a href="/"><Button type="primary">{i18next.t("general:Back Home")}</Button></a>}
         />
@@ -289,7 +294,7 @@ class WebhookEventListPage extends React.Component {
       <>
         {this.renderTable()}
         <Drawer
-          title="Webhook Event Detail"
+          title={i18next.t("webhook:Webhook Event Detail")}
           width={Setting.isMobile() ? "100%" : 720}
           placement="right"
           destroyOnClose
@@ -303,7 +308,7 @@ class WebhookEventListPage extends React.Component {
             layout={Setting.isMobile() ? "vertical" : "horizontal"}
             style={{padding: "12px", height: "100%", overflowY: "auto"}}
           >
-            <Descriptions.Item label="Webhook Name">
+            <Descriptions.Item label={i18next.t("webhook:Webhook Name")}>
               {this.getDetailField("webhookName") ? this.getWebhookLink(this.getDetailField("webhookName")) : "-"}
             </Descriptions.Item>
             <Descriptions.Item label={i18next.t("general:Organization")}>
@@ -313,16 +318,16 @@ class WebhookEventListPage extends React.Component {
                 </Link>
               ) : "-"}
             </Descriptions.Item>
-            <Descriptions.Item label="Status">
+            <Descriptions.Item label={i18next.t("webhook:Status")}>
               {this.getStatusTag(this.getDetailField("status"))}
             </Descriptions.Item>
-            <Descriptions.Item label="Attempt Count">
+            <Descriptions.Item label={i18next.t("webhook:Attempt Count")}>
               {this.getDetailField("attemptCount") || 0}
             </Descriptions.Item>
-            <Descriptions.Item label="Next Retry Time">
+            <Descriptions.Item label={i18next.t("webhook:Next Retry Time")}>
               {this.getDetailField("nextRetryTime") ? Setting.getFormattedDate(this.getDetailField("nextRetryTime")) : "-"}
             </Descriptions.Item>
-            <Descriptions.Item label="Payload">
+            <Descriptions.Item label={i18next.t("webhook:Payload")}>
               <Editor
                 value={this.jsonStrFormatter(this.getDetailField("payload"))}
                 lang="json"
@@ -333,7 +338,7 @@ class WebhookEventListPage extends React.Component {
                 readOnly
               />
             </Descriptions.Item>
-            <Descriptions.Item label="Last Error">
+            <Descriptions.Item label={i18next.t("webhook:Last Error")}>
               <Editor
                 value={this.getDetailField("lastError") || "-"}
                 fillHeight

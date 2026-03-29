@@ -1,4 +1,4 @@
-// Copyright 2021 The Casdoor Authors. All Rights Reserved.
+// Copyright 2026 The Casdoor Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,34 +17,49 @@ package object
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/casdoor/casdoor/util"
 )
 
 var (
+	webhookWorkerMu        sync.Mutex
 	webhookWorkerRunning   = false
-	webhookWorkerStop      = make(chan bool)
+	webhookWorkerStop      chan struct{}
 	webhookPollingInterval = 30 * time.Second // Configurable polling interval
 	webhookBatchSize       = 100              // Configurable batch size for processing events
 )
 
 // StartWebhookDeliveryWorker starts the background worker for webhook delivery
 func StartWebhookDeliveryWorker() {
+	webhookWorkerMu.Lock()
+	defer webhookWorkerMu.Unlock()
+
 	if webhookWorkerRunning {
 		return
 	}
 
+	stopCh := make(chan struct{})
+	webhookWorkerStop = stopCh
 	webhookWorkerRunning = true
 
 	util.SafeGoroutine(func() {
 		ticker := time.NewTicker(webhookPollingInterval)
 		defer ticker.Stop()
+		defer func() {
+			webhookWorkerMu.Lock()
+			defer webhookWorkerMu.Unlock()
+
+			if webhookWorkerStop == stopCh {
+				webhookWorkerRunning = false
+				webhookWorkerStop = nil
+			}
+		}()
 
 		for {
 			select {
-			case <-webhookWorkerStop:
-				webhookWorkerRunning = false
+			case <-stopCh:
 				return
 			case <-ticker.C:
 				processWebhookEvents()
@@ -55,10 +70,21 @@ func StartWebhookDeliveryWorker() {
 
 // StopWebhookDeliveryWorker stops the background worker
 func StopWebhookDeliveryWorker() {
+	webhookWorkerMu.Lock()
+	defer webhookWorkerMu.Unlock()
+
 	if !webhookWorkerRunning {
 		return
 	}
-	webhookWorkerStop <- true
+
+	if webhookWorkerStop == nil {
+		webhookWorkerRunning = false
+		return
+	}
+
+	close(webhookWorkerStop)
+	webhookWorkerStop = nil
+	webhookWorkerRunning = false
 }
 
 // processWebhookEvents processes pending webhook events
