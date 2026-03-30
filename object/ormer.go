@@ -468,17 +468,27 @@ func (a *Ormer) createTable() {
 		panic(err)
 	}
 
+	err = a.Engine.Sync2(new(Agent))
+	if err != nil {
+		panic(err)
+	}
+
+	err = a.Engine.Sync2(new(Server))
+	if err != nil {
+		panic(err)
+	}
+
+	err = a.Engine.Sync2(new(Entry))
+	if err != nil {
+		panic(err)
+	}
+
 	err = a.Engine.Sync2(new(Site))
 	if err != nil {
 		panic(err)
 	}
 
 	err = a.Engine.Sync2(new(Rule))
-	if err != nil {
-		panic(err)
-	}
-
-	err = a.Engine.Sync2(new(Server))
 	if err != nil {
 		panic(err)
 	}
