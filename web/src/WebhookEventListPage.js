@@ -54,13 +54,13 @@ class WebhookEventListPage extends React.Component {
 
   getStatusTag = (status) => {
     const statusConfig = {
-      pending: {color: "gold", text: "Pending"},
-      success: {color: "green", text: "Success"},
-      failed: {color: "red", text: "Failed"},
-      retrying: {color: "blue", text: "Retrying"},
+      pending: {color: "gold", text: i18next.t("webhook:Pending")},
+      success: {color: "green", text: i18next.t("webhook:Success")},
+      failed: {color: "red", text: i18next.t("webhook:Failed")},
+      retrying: {color: "blue", text: i18next.t("webhook:Retrying")},
     };
 
-    const config = statusConfig[status] || {color: "default", text: status || "Unknown"};
+    const config = statusConfig[status] || {color: "default", text: status || i18next.t("webhook:Unknown")};
 
     return <Tag color={config.color}>{config.text}</Tag>;
   };
