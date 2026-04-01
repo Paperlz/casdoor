@@ -13,15 +13,12 @@
 // limitations under the License.
 
 import React from "react";
-import {Button, Card, Col, Input, Row, Select} from "antd";
-import {LinkOutlined} from "@ant-design/icons";
+import {Button, Card, Col, Input, Row, Tag} from "antd";
 import * as EntryBackend from "./backend/EntryBackend";
 import * as Setting from "./Setting";
 import i18next from "i18next";
-import * as OrganizationBackend from "./backend/OrganizationBackend";
-import * as ApplicationBackend from "./backend/ApplicationBackend";
 
-const {Option} = Select;
+const {TextArea} = Input;
 
 class EntryEditPage extends React.Component {
   constructor(props) {
@@ -31,20 +28,15 @@ class EntryEditPage extends React.Component {
       entryName: props.match.params.entryName,
       owner: props.match.params.organizationName,
       entry: null,
-      organizations: [],
-      applications: [],
-      mode: props.location.mode !== undefined ? props.location.mode : "edit",
     };
   }
 
   UNSAFE_componentWillMount() {
     this.getEntry();
-    this.getOrganizations();
-    this.getApplications(this.state.owner);
   }
 
   getEntry() {
-    EntryBackend.getEntry(this.state.entry?.owner || this.state.owner, this.state.entryName)
+    EntryBackend.getEntry(this.state.owner, this.state.entryName)
       .then((res) => {
         if (res.data === null) {
           this.props.history.push("/404");
@@ -58,64 +50,6 @@ class EntryEditPage extends React.Component {
         } else {
           Setting.showMessage("error", `${i18next.t("general:Failed to get")}: ${res.msg}`);
         }
-      });
-  }
-
-  getOrganizations() {
-    if (Setting.isAdminUser(this.props.account)) {
-      OrganizationBackend.getOrganizations("admin")
-        .then((res) => {
-          this.setState({
-            organizations: res.data || [],
-          });
-        });
-    }
-  }
-
-  getApplications(owner) {
-    ApplicationBackend.getApplicationsByOrganization("admin", owner)
-      .then((res) => {
-        this.setState({
-          applications: res.data || [],
-        });
-      });
-  }
-
-  updateEntryField(key, value) {
-    const entry = this.state.entry;
-    if (key === "owner" && entry.owner !== value) {
-      entry.application = "";
-      this.getApplications(value);
-    }
-
-    entry[key] = value;
-    this.setState({
-      entry: entry,
-    });
-  }
-
-  submitEntryEdit(willExit) {
-    const entry = Setting.deepCopy(this.state.entry);
-    EntryBackend.updateEntry(this.state.owner, this.state.entryName, entry)
-      .then((res) => {
-        if (res.status === "ok") {
-          Setting.showMessage("success", i18next.t("general:Successfully modified"));
-          if (willExit) {
-            this.props.history.push("/entries");
-          } else {
-            this.setState({
-              mode: "edit",
-              owner: entry.owner,
-              entryName: entry.name,
-            }, () => {this.getEntry();});
-            this.props.history.push(`/entries/${entry.owner}/${entry.name}`);
-          }
-        } else {
-          Setting.showMessage("error", `${i18next.t("general:Failed to update")}: ${res.msg}`);
-        }
-      })
-      .catch(error => {
-        Setting.showMessage("error", `${i18next.t("general:Failed to connect to server")}: ${error}`);
       });
   }
 
@@ -134,80 +68,105 @@ class EntryEditPage extends React.Component {
       });
   }
 
+  renderStatus(status) {
+    if (!status) {
+      return null;
+    }
+
+    let color = "default";
+    if (status === "ok" || status === "success" || status === "completed") {
+      color = "success";
+    } else if (status === "error" || status === "failed") {
+      color = "error";
+    } else if (status === "pending" || status === "retrying") {
+      color = "processing";
+    }
+
+    return <Tag color={color}>{status}</Tag>;
+  }
+
+  formatJson(payload) {
+    if (!payload) {
+      return "";
+    }
+
+    try {
+      return JSON.stringify(JSON.parse(payload), null, 2);
+    } catch {
+      return payload;
+    }
+  }
+
+  renderReadonlyField(label, value, options = {}) {
+    const {span = 22, textArea = false, rows = 4} = options;
+
+    return (
+      <Row style={{marginTop: "20px"}}>
+        <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+          {label}:
+        </Col>
+        <Col span={span}>
+          {textArea ? (
+            <TextArea value={value || ""} autoSize={{minRows: rows, maxRows: rows + 8}} readOnly />
+          ) : (
+            <Input value={value || ""} readOnly />
+          )}
+        </Col>
+      </Row>
+    );
+  }
+
   renderEntry() {
+    const {entry} = this.state;
+
     return (
       <Card size="small" title={
         <div>
-          {this.state.mode === "add" ? i18next.t("entry:New Entry") : i18next.t("entry:Edit Entry")}&nbsp;&nbsp;&nbsp;&nbsp;
-          <Button onClick={() => this.submitEntryEdit(false)}>{i18next.t("general:Save")}</Button>
-          <Button style={{marginLeft: "20px"}} type="primary" onClick={() => this.submitEntryEdit(true)}>{i18next.t("general:Save & Exit")}</Button>
-          {this.state.mode === "add" ? <Button style={{marginLeft: "20px"}} onClick={() => this.deleteEntry()}>{i18next.t("general:Cancel")}</Button> : null}
+          {i18next.t("general:Entries")}&nbsp;&nbsp;&nbsp;&nbsp;
+          <Button onClick={() => this.getEntry()}>{i18next.t("general:Refresh")}</Button>
+          <Button style={{marginLeft: "20px"}} danger onClick={() => this.deleteEntry()}>{i18next.t("general:Delete")}</Button>
         </div>
       } style={(Setting.isMobile()) ? {margin: "5px"} : {}} type="inner">
-        <Row style={{marginTop: "10px"}} >
+        {this.renderReadonlyField(i18next.t("general:Name"), entry.name)}
+        {this.renderReadonlyField(i18next.t("general:Display name"), entry.displayName)}
+        {this.renderReadonlyField(i18next.t("general:Organization"), entry.organization || entry.owner)}
+        {this.renderReadonlyField(i18next.t("general:Application"), entry.application)}
+        {this.renderReadonlyField("Agent", entry.agent)}
+        {this.renderReadonlyField("Source", entry.source)}
+        {this.renderReadonlyField("Event type", entry.eventType)}
+        <Row style={{marginTop: "20px"}}>
           <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
-            {Setting.getLabel(i18next.t("general:Organization"), i18next.t("general:Organization - Tooltip"))} :
+            {i18next.t("general:Status")}:
           </Col>
-          <Col span={22} >
-            <Select virtual={false} style={{width: "100%"}} disabled={!Setting.isAdminUser(this.props.account)} value={this.state.entry.owner} onChange={(value => {this.updateEntryField("owner", value);})}>
-              {
-                this.state.organizations.map((organization, index) => <Option key={index} value={organization.name}>{organization.name}</Option>)
-              }
-            </Select>
+          <Col span={22}>
+            {this.renderStatus(entry.status)}
           </Col>
         </Row>
-        <Row style={{marginTop: "20px"}} >
-          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
-            {i18next.t("general:Name")}:
-          </Col>
-          <Col span={22} >
-            <Input value={this.state.entry.name} onChange={e => {
-              this.updateEntryField("name", e.target.value);
-            }} />
-          </Col>
-        </Row>
-        <Row style={{marginTop: "20px"}} >
-          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
-            {i18next.t("general:Display name")}:
-          </Col>
-          <Col span={22} >
-            <Input value={this.state.entry.displayName} onChange={e => {
-              this.updateEntryField("displayName", e.target.value);
-            }} />
-          </Col>
-        </Row>
-        <Row style={{marginTop: "20px"}} >
-          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
-            {Setting.getLabel(i18next.t("general:Listening URL"), i18next.t("general:Listening URL - Tooltip"))} :
-          </Col>
-          <Col span={22} >
-            <Input prefix={<LinkOutlined />} value={this.state.entry.url} onChange={e => {
-              this.updateEntryField("url", e.target.value);
-            }} />
-          </Col>
-        </Row>
-        <Row style={{marginTop: "20px"}} >
-          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
-            {Setting.getLabel(i18next.t("token:Access token"), i18next.t("token:Access token - Tooltip"))} :
-          </Col>
-          <Col span={22} >
-            <Input.Password placeholder={"***"} value={this.state.entry.token} onChange={e => {
-              this.updateEntryField("token", e.target.value);
-            }} />
-          </Col>
-        </Row>
-        <Row style={{marginTop: "20px"}} >
-          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
-            {Setting.getLabel(i18next.t("general:Application"), i18next.t("general:Application - Tooltip"))} :
-          </Col>
-          <Col span={22} >
-            <Select virtual={false} style={{width: "100%"}} value={this.state.entry.application} onChange={(value => {this.updateEntryField("application", value);})}>
-              {
-                this.state.applications.map((application, index) => <Option key={index} value={application.name}>{application.name}</Option>)
-              }
-            </Select>
-          </Col>
-        </Row>
+        {this.renderReadonlyField("Action", entry.action)}
+        {this.renderReadonlyField("Level", entry.level)}
+        {this.renderReadonlyField("Job ID", entry.jobId)}
+        {this.renderReadonlyField("Run ID", entry.runId)}
+        {this.renderReadonlyField("Session ID", entry.sessionId)}
+        {this.renderReadonlyField("Session key", entry.sessionKey)}
+        {this.renderReadonlyField("Model", entry.model)}
+        {this.renderReadonlyField("Provider", entry.provider)}
+        {this.renderReadonlyField("Created time", Setting.getFormattedDate(entry.createdTime))}
+        {this.renderReadonlyField("Run at", entry.runAtMs ? String(entry.runAtMs) : "")}
+        {this.renderReadonlyField("Duration (ms)", entry.durationMs ? String(entry.durationMs) : "")}
+        {this.renderReadonlyField("Next run at", entry.nextRunAtMs ? String(entry.nextRunAtMs) : "")}
+        {this.renderReadonlyField("Input tokens", entry.inputTokens ? String(entry.inputTokens) : "")}
+        {this.renderReadonlyField("Output tokens", entry.outputTokens ? String(entry.outputTokens) : "")}
+        {this.renderReadonlyField("Total tokens", entry.totalTokens ? String(entry.totalTokens) : "")}
+        {this.renderReadonlyField("Cache read tokens", entry.cacheReadTokens ? String(entry.cacheReadTokens) : "")}
+        {this.renderReadonlyField("Cache write tokens", entry.cacheWriteTokens ? String(entry.cacheWriteTokens) : "")}
+        {this.renderReadonlyField("Context limit", entry.contextLimit ? String(entry.contextLimit) : "")}
+        {this.renderReadonlyField("Context used", entry.contextUsed ? String(entry.contextUsed) : "")}
+        {this.renderReadonlyField("Cost (USD)", entry.costUsd ? String(entry.costUsd) : "")}
+        {this.renderReadonlyField("Delivery status", entry.deliveryStatus)}
+        {this.renderReadonlyField("Summary", entry.summary, {textArea: true, rows: 3})}
+        {this.renderReadonlyField("Error", entry.error, {textArea: true, rows: 3})}
+        {this.renderReadonlyField("Delivery error", entry.deliveryError, {textArea: true, rows: 3})}
+        {this.renderReadonlyField("Payload", this.formatJson(entry.payload), {textArea: true, rows: 10})}
       </Card>
     );
   }

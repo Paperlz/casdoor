@@ -24,12 +24,29 @@
 package routers
 
 import (
+	"net/http"
+
 	"github.com/beego/beego/v2/server/web"
+	"github.com/beego/beego/v2/server/web/context"
 	"github.com/casdoor/casdoor/controllers"
 	"github.com/casdoor/casdoor/mcpself"
+	"github.com/casdoor/casdoor/object"
 )
 
 func InitAPI() {
+	web.InsertFilter("/api/openclaw-webhook/*", web.BeforeRouter, func(ctx *context.Context) {
+		if ctx.Request == nil || ctx.Request.Method != http.MethodPost {
+			return
+		}
+
+		if ctx.Request.ContentLength > object.MaxOpenClawWebhookPayloadBytes {
+			ctx.Abort(http.StatusRequestEntityTooLarge, "OpenClaw payload too large")
+			return
+		}
+
+		ctx.Request.Body = http.MaxBytesReader(ctx.ResponseWriter.ResponseWriter, ctx.Request.Body, object.MaxOpenClawWebhookPayloadBytes)
+	})
+
 	ns := web.NewNamespace("/",
 		web.NSNamespace("/api",
 			web.NSInclude(
@@ -145,6 +162,7 @@ func InitAPI() {
 	web.Router("/api/update-entry", &controllers.ApiController{}, "POST:UpdateEntry")
 	web.Router("/api/add-entry", &controllers.ApiController{}, "POST:AddEntry")
 	web.Router("/api/delete-entry", &controllers.ApiController{}, "POST:DeleteEntry")
+	web.Router("/api/openclaw-webhook/:owner/:name", &controllers.ApiController{}, "POST:ReceiveOpenClawEntry")
 
 	web.Router("/api/get-global-sites", &controllers.ApiController{}, "GET:GetGlobalSites")
 	web.Router("/api/get-sites", &controllers.ApiController{}, "GET:GetSites")

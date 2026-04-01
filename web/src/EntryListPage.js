@@ -14,8 +14,7 @@
 
 import React from "react";
 import {Link} from "react-router-dom";
-import {Button, Table} from "antd";
-import moment from "moment";
+import {Button, Table, Tag} from "antd";
 import * as Setting from "./Setting";
 import * as EntryBackend from "./backend/EntryBackend";
 import i18next from "i18next";
@@ -23,36 +22,6 @@ import BaseListPage from "./BaseListPage";
 import PopconfirmModal from "./common/modal/PopconfirmModal";
 
 class EntryListPage extends BaseListPage {
-  newEntry() {
-    const randomName = Setting.getRandomName();
-    const owner = Setting.getRequestOrganization(this.props.account);
-    return {
-      owner: owner,
-      name: `entry_${randomName}`,
-      createdTime: moment().format(),
-      displayName: `New Entry - ${randomName}`,
-      url: "",
-      token: "",
-      application: "",
-    };
-  }
-
-  addEntry() {
-    const newEntry = this.newEntry();
-    EntryBackend.addEntry(newEntry)
-      .then((res) => {
-        if (res.status === "ok") {
-          this.props.history.push({pathname: `/entries/${newEntry.owner}/${newEntry.name}`, mode: "add"});
-          Setting.showMessage("success", i18next.t("general:Successfully added"));
-        } else {
-          Setting.showMessage("error", `${i18next.t("general:Failed to add")}: ${res.msg}`);
-        }
-      })
-      .catch(error => {
-        Setting.showMessage("error", `${i18next.t("general:Failed to connect to server")}: ${error}`);
-      });
-  }
-
   deleteEntry(i) {
     EntryBackend.deleteEntry(this.state.data[i])
       .then((res) => {
@@ -100,30 +69,37 @@ class EntryListPage extends BaseListPage {
       });
   };
 
+  renderStatus(status) {
+    if (!status) {
+      return null;
+    }
+
+    let color = "default";
+    if (status === "ok" || status === "success" || status === "completed") {
+      color = "success";
+    } else if (status === "error" || status === "failed") {
+      color = "error";
+    } else if (status === "pending" || status === "retrying") {
+      color = "processing";
+    }
+
+    return <Tag color={color}>{status}</Tag>;
+  }
+
   renderTable(entries) {
     const columns = [
       {
         title: i18next.t("general:Name"),
         dataIndex: "name",
         key: "name",
-        width: "160px",
+        width: "170px",
         sorter: true,
         ...this.getColumnSearchProps("name"),
-        render: (text, record, index) => {
-          return (
-            <Link to={`/entries/${record.owner}/${text}`}>
-              {text}
-            </Link>
-          );
-        },
-      },
-      {
-        title: i18next.t("general:Organization"),
-        dataIndex: "owner",
-        key: "owner",
-        width: "130px",
-        sorter: true,
-        ...this.getColumnSearchProps("owner"),
+        render: (text, record) => (
+          <Link to={`/entries/${record.owner}/${text}`}>
+            {text}
+          </Link>
+        ),
       },
       {
         title: i18next.t("general:Created time"),
@@ -131,34 +107,7 @@ class EntryListPage extends BaseListPage {
         key: "createdTime",
         width: "180px",
         sorter: true,
-        render: (text, record, index) => {
-          return Setting.getFormattedDate(text);
-        },
-      },
-      {
-        title: i18next.t("general:Display name"),
-        dataIndex: "displayName",
-        key: "displayName",
-        sorter: true,
-        ...this.getColumnSearchProps("displayName"),
-      },
-      {
-        title: i18next.t("general:Listening URL"),
-        dataIndex: "url",
-        key: "url",
-        sorter: true,
-        ...this.getColumnSearchProps("url"),
-        render: (text) => {
-          if (!text) {
-            return null;
-          }
-
-          return (
-            <a target="_blank" rel="noreferrer" href={text}>
-              {Setting.getShortText(text, 40)}
-            </a>
-          );
-        },
+        render: (text) => Setting.getFormattedDate(text),
       },
       {
         title: i18next.t("general:Application"),
@@ -169,6 +118,83 @@ class EntryListPage extends BaseListPage {
         ...this.getColumnSearchProps("application"),
       },
       {
+        title: "Agent",
+        dataIndex: "agent",
+        key: "agent",
+        width: "180px",
+        sorter: true,
+        ...this.getColumnSearchProps("agent"),
+        render: (text) => Setting.getShortText(text, 28),
+      },
+      {
+        title: "Source",
+        dataIndex: "source",
+        key: "source",
+        width: "110px",
+        sorter: true,
+        ...this.getColumnSearchProps("source"),
+      },
+      {
+        title: "Event type",
+        dataIndex: "eventType",
+        key: "eventType",
+        width: "150px",
+        sorter: true,
+        ...this.getColumnSearchProps("eventType"),
+      },
+      {
+        title: i18next.t("general:Status"),
+        dataIndex: "status",
+        key: "status",
+        width: "110px",
+        sorter: true,
+        ...this.getColumnSearchProps("status"),
+        render: (text) => this.renderStatus(text),
+      },
+      {
+        title: "Job ID",
+        dataIndex: "jobId",
+        key: "jobId",
+        width: "150px",
+        sorter: true,
+        ...this.getColumnSearchProps("jobId"),
+        render: (text) => Setting.getShortText(text, 24),
+      },
+      {
+        title: "Session ID",
+        dataIndex: "sessionId",
+        key: "sessionId",
+        width: "150px",
+        sorter: true,
+        ...this.getColumnSearchProps("sessionId"),
+        render: (text) => Setting.getShortText(text, 24),
+      },
+      {
+        title: "Model",
+        dataIndex: "model",
+        key: "model",
+        width: "180px",
+        sorter: true,
+        ...this.getColumnSearchProps("model"),
+        render: (text) => Setting.getShortText(text, 30),
+      },
+      {
+        title: i18next.t("general:Display name"),
+        dataIndex: "displayName",
+        key: "displayName",
+        width: "180px",
+        sorter: true,
+        ...this.getColumnSearchProps("displayName"),
+      },
+      {
+        title: "Summary",
+        dataIndex: "summary",
+        key: "summary",
+        sorter: true,
+        ...this.getColumnSearchProps("summary"),
+        render: (text) => Setting.getShortText(text, 60),
+      },
+      {
         title: i18next.t("general:Action"),
         dataIndex: "op",
         key: "op",
@@ -177,7 +203,7 @@ class EntryListPage extends BaseListPage {
         render: (text, record, index) => {
           return (
             <div>
-              <Button style={{marginTop: "10px", marginBottom: "10px", marginRight: "10px"}} type="primary" onClick={() => this.props.history.push(`/entries/${record.owner}/${record.name}`)}>{i18next.t("general:Edit")}</Button>
+              <Button style={{marginTop: "10px", marginBottom: "10px", marginRight: "10px"}} type="primary" onClick={() => this.props.history.push(`/entries/${record.owner}/${record.name}`)}>{i18next.t("general:View")}</Button>
               <PopconfirmModal title={i18next.t("general:Sure to delete") + `: ${record.name} ?`} onConfirm={() => this.deleteEntry(index)}>
               </PopconfirmModal>
             </div>
@@ -207,8 +233,7 @@ class EntryListPage extends BaseListPage {
         bordered
         title={() => (
           <div>
-            {i18next.t("general:Entries")}&nbsp;&nbsp;&nbsp;&nbsp;
-            <Button type="primary" size="small" onClick={() => this.addEntry()}>{i18next.t("general:Add")}</Button>
+            {i18next.t("general:Entries")}
           </div>
         )}
       />
