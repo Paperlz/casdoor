@@ -111,6 +111,26 @@ type Entry struct {
 	PayloadTruncated bool   `json:"payloadTruncated"`
 }
 
+func NewTraceEntry(message []byte) *Entry {
+	currentTime := util.GetCurrentTime()
+	traceId := fmt.Sprintf("trace_%s_%s", util.GenerateSimpleTimeId(), util.GetRandomName())
+
+	return &Entry{
+		Owner:            CasdoorOrganization,
+		Name:             traceId,
+		CreatedTime:      currentTime,
+		UpdatedTime:      currentTime,
+		DisplayName:      traceId,
+		Organization:     CasdoorOrganization,
+		Source:           "opentelemetry",
+		EventType:        "trace",
+		Status:           "received",
+		Payload:          string(message),
+		PayloadBytes:     int64(len(message)),
+		PayloadTruncated: false,
+	}
+}
+
 func GetEntries(owner string) ([]*Entry, error) {
 	entries := []*Entry{}
 	session := ormer.Engine.Desc("created_time").Cols(entryListColumns...)
