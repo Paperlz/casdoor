@@ -16,11 +16,35 @@ package controllers
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/beego/beego/v2/server/web/pagination"
 	"github.com/casdoor/casdoor/object"
 	"github.com/casdoor/casdoor/util"
 )
+
+type EntryPayload struct {
+	OccurredTime   string `json:"occurredTime"`
+	HostName       string `json:"hostName"`
+	Source         string `json:"source"`
+	Category       string `json:"category"`
+	EventType      string `json:"eventType"`
+	Severity       string `json:"severity"`
+	Status         string `json:"status"`
+	Summary        string `json:"summary"`
+	RawPayload     string `json:"rawPayload"`
+	Labels         string `json:"labels"`
+	TraceId        string `json:"traceId"`
+	SessionId      string `json:"sessionId"`
+	Pid            int    `json:"pid"`
+	CorrelationKey string `json:"correlationKey"`
+}
+
+type AddEntriesRequest struct {
+	Owner     string          `json:"owner"`
+	AgentName string          `json:"agentName"`
+	Entries   []*EntryPayload `json:"entries"`
+}
 
 // GetEntries
 // @Title GetEntries
@@ -41,9 +65,22 @@ func (c *ApiController) GetEntries() {
 	value := c.Ctx.Input.Query("value")
 	sortField := c.Ctx.Input.Query("sortField")
 	sortOrder := c.Ctx.Input.Query("sortOrder")
+	filter := object.EntryFilter{
+		Agent:     c.Ctx.Input.Query("agent"),
+		Source:    c.Ctx.Input.Query("source"),
+		Category:  c.Ctx.Input.Query("category"),
+		EventType: c.Ctx.Input.Query("eventType"),
+		Severity:  c.Ctx.Input.Query("severity"),
+		TraceId:   c.Ctx.Input.Query("traceId"),
+		SessionId: c.Ctx.Input.Query("sessionId"),
+		TimeFrom:  c.Ctx.Input.Query("from"),
+		TimeTo:    c.Ctx.Input.Query("to"),
+		Field:     field,
+		Value:     value,
+	}
 
 	if limit == "" || page == "" {
-		entries, err := object.GetEntries(owner)
+		entries, err := object.GetPaginationEntries(owner, 0, 0, filter, sortField, sortOrder)
 		if err != nil {
 			c.ResponseError(err.Error())
 			return
@@ -53,14 +90,14 @@ func (c *ApiController) GetEntries() {
 	}
 
 	limitInt := util.ParseInt(limit)
-	count, err := object.GetEntryCount(owner, field, value)
+	count, err := object.GetEntryCount(owner, filter)
 	if err != nil {
 		c.ResponseError(err.Error())
 		return
 	}
 
 	paginator := pagination.SetPaginator(c.Ctx, limitInt, count)
-	entries, err := object.GetPaginationEntries(owner, paginator.Offset(), limitInt, field, value, sortField, sortOrder)
+	entries, err := object.GetPaginationEntries(owner, paginator.Offset(), limitInt, filter, sortField, sortOrder)
 	if err != nil {
 		c.ResponseError(err.Error())
 		return
@@ -126,6 +163,89 @@ func (c *ApiController) AddEntry() {
 	}
 
 	c.Data["json"] = wrapActionResponse(object.AddEntry(&entry))
+	c.ServeJSON()
+}
+
+// AddEntries
+// @Title AddEntries
+// @Tag Entry API
+// @Description add log or telemetry entries from probe
+// @Param   body    body   controllers.AddEntriesRequest  true  "The entries payload"
+// @Success 200 {object} controllers.Response The Response object
+// @router /add-entries [post]
+func (c *ApiController) AddEntries() {
+	var req AddEntriesRequest
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &req)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
+	agent, ok := c.requireProbeAgent(req.Owner, req.AgentName)
+	if !ok {
+		return
+	}
+
+	entries := make([]*object.Entry, 0, len(req.Entries))
+	lastEventTime := ""
+	for _, payload := range req.Entries {
+		if payload == nil {
+			continue
+		}
+
+		occurredTime := payload.OccurredTime
+		if occurredTime == "" {
+			occurredTime = util.GetCurrentTime()
+		}
+		if occurredTime > lastEventTime {
+			lastEventTime = occurredTime
+		}
+
+		hostName := payload.HostName
+		if hostName == "" {
+			hostName = agent.HostName
+		}
+
+		entryName := fmt.Sprintf("entry_%s_%s", util.GenerateSimpleTimeId(), util.GetRandomName())
+		entries = append(entries, &object.Entry{
+			Owner:          agent.Owner,
+			Name:           entryName,
+			DisplayName:    entryName,
+			OccurredTime:   occurredTime,
+			Agent:          agent.Name,
+			HostName:       hostName,
+			Source:         payload.Source,
+			Category:       payload.Category,
+			EventType:      payload.EventType,
+			Severity:       payload.Severity,
+			Status:         payload.Status,
+			Summary:        payload.Summary,
+			RawPayload:     payload.RawPayload,
+			Labels:         payload.Labels,
+			TraceId:        payload.TraceId,
+			SessionId:      payload.SessionId,
+			Pid:            payload.Pid,
+			CorrelationKey: payload.CorrelationKey,
+		})
+	}
+
+	if len(entries) == 0 {
+		c.ResponseError("entries is empty")
+		return
+	}
+
+	affected, err := object.AddEntries(entries)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
+	if lastEventTime != "" {
+		agent.LastEventTime = lastEventTime
+		_, _ = object.UpdateAgent(agent.GetId(), agent)
+	}
+
+	c.Data["json"] = wrapActionResponse(affected)
 	c.ServeJSON()
 }
 

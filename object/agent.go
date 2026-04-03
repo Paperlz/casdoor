@@ -28,9 +28,20 @@ type Agent struct {
 	UpdatedTime string `xorm:"varchar(100)" json:"updatedTime"`
 	DisplayName string `xorm:"varchar(100)" json:"displayName"`
 
-	Url         string `xorm:"varchar(500)" json:"url"`
-	Token       string `xorm:"varchar(500)" json:"token"`
-	Application string `xorm:"varchar(100)" json:"application"`
+	Url              string   `xorm:"varchar(500)" json:"url"`
+	Token            string   `xorm:"varchar(500)" json:"token"`
+	Application      string   `xorm:"varchar(100)" json:"application"`
+	HostName         string   `xorm:"varchar(100)" json:"hostName"`
+	DeployType       string   `xorm:"varchar(100)" json:"deployType"`
+	Version          string   `xorm:"varchar(100)" json:"version"`
+	GatewayPort      int      `json:"gatewayPort"`
+	StateDir         string   `xorm:"varchar(500)" json:"stateDir"`
+	WorkspacePath    string   `xorm:"varchar(500)" json:"workspacePath"`
+	CollectorVersion string   `xorm:"varchar(100)" json:"collectorVersion"`
+	Sources          []string `xorm:"varchar(1000)" json:"sources"`
+	Status           string   `xorm:"varchar(100)" json:"status"`
+	LastHeartbeat    string   `xorm:"varchar(100)" json:"lastHeartbeat"`
+	LastEventTime    string   `xorm:"varchar(100)" json:"lastEventTime"`
 }
 
 func GetAgents(owner string) ([]*Agent, error) {
