@@ -91,6 +91,7 @@ func NewOtelEntry(source, category, summary string, message []byte) *Entry {
 func GetEntries(owner string) ([]*Entry, error) {
 	entries := []*Entry{}
 	session := getEntrySession(owner, EntryFilter{}, 0, 0, "", "")
+	defer session.Close()
 	err := session.Find(&entries)
 	if err != nil {
 		return nil, err
@@ -142,34 +143,11 @@ func AddEntry(entry *Entry) (bool, error) {
 	if entry.UpdatedTime == "" {
 		entry.UpdatedTime = entry.CreatedTime
 	}
+	if entry.OccurredTime == "" {
+		entry.OccurredTime = entry.CreatedTime
+	}
 
 	affected, err := ormer.Engine.Insert(entry)
-	if err != nil {
-		return false, err
-	}
-
-	return affected != 0, nil
-}
-
-func AddEntries(entries []*Entry) (bool, error) {
-	if len(entries) == 0 {
-		return false, nil
-	}
-
-	currentTime := util.GetCurrentTime()
-	for _, entry := range entries {
-		if entry == nil {
-			continue
-		}
-		if entry.CreatedTime == "" {
-			entry.CreatedTime = currentTime
-		}
-		if entry.UpdatedTime == "" {
-			entry.UpdatedTime = entry.CreatedTime
-		}
-	}
-
-	affected, err := ormer.Engine.Insert(entries)
 	if err != nil {
 		return false, err
 	}
@@ -192,12 +170,14 @@ func (entry *Entry) GetId() string {
 
 func GetEntryCount(owner string, filter EntryFilter) (int64, error) {
 	session := getEntrySession(owner, filter, 0, 0, "", "")
+	defer session.Close()
 	return session.Count(&Entry{})
 }
 
 func GetPaginationEntries(owner string, offset, limit int, filter EntryFilter, sortField, sortOrder string) ([]*Entry, error) {
 	entries := []*Entry{}
 	session := getEntrySession(owner, filter, offset, limit, sortField, sortOrder)
+	defer session.Close()
 	err := session.Find(&entries)
 	if err != nil {
 		return entries, err
@@ -207,7 +187,7 @@ func GetPaginationEntries(owner string, offset, limit int, filter EntryFilter, s
 }
 
 func getEntrySession(owner string, filter EntryFilter, offset, limit int, sortField, sortOrder string) *xorm.Session {
-	session := ormer.Engine.Prepare()
+	session := ormer.Engine.NewSession()
 	if offset > 0 && limit > 0 {
 		session = session.Limit(limit, offset)
 	} else if offset == 0 && limit > 0 {

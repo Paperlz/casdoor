@@ -41,15 +41,12 @@ func (c *ApiController) AddTrace() {
 
 	entry, err := newOtlpEntry("otel.trace", "trace", summarizeTraceIngest(&req), &req)
 	if err != nil {
-		c.Ctx.Output.SetStatus(500)
-		c.Ctx.Output.Body([]byte(fmt.Sprintf("marshal trace failed: %v", err)))
+		c.writeOtlpError(500, "marshal trace failed", err)
 		return
 	}
-	entry.Summary = summarizeTraceIngest(&req)
 
 	if _, err := object.AddEntry(entry); err != nil {
-		c.Ctx.Output.SetStatus(500)
-		c.Ctx.Output.Body([]byte(fmt.Sprintf("save trace failed: %v", err)))
+		c.writeOtlpError(500, "save trace failed", err)
 		return
 	}
 
@@ -75,14 +72,12 @@ func (c *ApiController) AddMetrics() {
 
 	entry, err := newOtlpEntry("otel.metric", "metric", summarizeMetricIngest(&req), &req)
 	if err != nil {
-		c.Ctx.Output.SetStatus(500)
-		c.Ctx.Output.Body([]byte(fmt.Sprintf("marshal metrics failed: %v", err)))
+		c.writeOtlpError(500, "marshal metrics failed", err)
 		return
 	}
 
 	if _, err := object.AddEntry(entry); err != nil {
-		c.Ctx.Output.SetStatus(500)
-		c.Ctx.Output.Body([]byte(fmt.Sprintf("save metrics failed: %v", err)))
+		c.writeOtlpError(500, "save metrics failed", err)
 		return
 	}
 
@@ -108,14 +103,12 @@ func (c *ApiController) AddLogs() {
 
 	entry, err := newOtlpEntry("otel.log", "log", summarizeLogIngest(&req), &req)
 	if err != nil {
-		c.Ctx.Output.SetStatus(500)
-		c.Ctx.Output.Body([]byte(fmt.Sprintf("marshal logs failed: %v", err)))
+		c.writeOtlpError(500, "marshal logs failed", err)
 		return
 	}
 
 	if _, err := object.AddEntry(entry); err != nil {
-		c.Ctx.Output.SetStatus(500)
-		c.Ctx.Output.Body([]byte(fmt.Sprintf("save logs failed: %v", err)))
+		c.writeOtlpError(500, "save logs failed", err)
 		return
 	}
 
@@ -129,25 +122,31 @@ func (c *ApiController) AddLogs() {
 
 func (c *ApiController) readOtlpRequest(message proto.Message) bool {
 	if !strings.HasPrefix(c.Ctx.Input.Header("Content-Type"), "application/x-protobuf") {
-		c.Ctx.Output.SetStatus(415)
-		c.Ctx.Output.Body([]byte("unsupported content type"))
+		c.writeOtlpError(415, "unsupported content type", nil)
 		return false
 	}
 
 	body, err := io.ReadAll(c.Ctx.Request.Body)
 	if err != nil {
-		c.Ctx.Output.SetStatus(400)
-		c.Ctx.Output.Body([]byte("read body failed"))
+		c.writeOtlpError(400, "read body failed", err)
 		return false
 	}
 
 	if err := proto.Unmarshal(body, message); err != nil {
-		c.Ctx.Output.SetStatus(400)
-		c.Ctx.Output.Body([]byte(fmt.Sprintf("bad protobuf: %v", err)))
+		c.writeOtlpError(400, "bad protobuf", err)
 		return false
 	}
 
 	return true
+}
+
+func (c *ApiController) writeOtlpError(status int, message string, err error) {
+	c.Ctx.Output.SetStatus(status)
+	if err != nil {
+		c.Ctx.Output.Body([]byte(fmt.Sprintf("%s: %v", message, err)))
+		return
+	}
+	c.Ctx.Output.Body([]byte(message))
 }
 
 func newOtlpEntry(source, category, summary string, message proto.Message) (*object.Entry, error) {

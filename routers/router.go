@@ -144,9 +144,7 @@ func InitAPI() {
 	web.Router("/api/get-entry", &controllers.ApiController{}, "GET:GetEntry")
 	web.Router("/api/update-entry", &controllers.ApiController{}, "POST:UpdateEntry")
 	web.Router("/api/add-entry", &controllers.ApiController{}, "POST:AddEntry")
-	web.Router("/api/add-entries", &controllers.ApiController{}, "POST:AddEntries")
 	web.Router("/api/delete-entry", &controllers.ApiController{}, "POST:DeleteEntry")
-	web.Router("/api/update-openclaw-probe-heartbeat", &controllers.ApiController{}, "POST:UpdateOpenClawProbeHeartbeat")
 
 	web.Router("/api/v1/traces", &controllers.ApiController{}, "POST:AddTrace")
 	web.Router("/api/v1/metrics", &controllers.ApiController{}, "POST:AddMetrics")
