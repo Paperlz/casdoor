@@ -46,9 +46,11 @@ type Entry struct {
 	Pid            int    `json:"pid"`
 	CorrelationKey string `xorm:"varchar(100) index" json:"correlationKey"`
 
+	Provider    string `xorm:"varchar(100)" json:"provider"`
 	Url         string `xorm:"varchar(500)" json:"url"`
 	Token       string `xorm:"varchar(500)" json:"token"`
 	Application string `xorm:"varchar(100)" json:"application"`
+	Type        string `xorm:"varchar(100)" json:"type"`
 	Message     string `xorm:"mediumtext" json:"message"`
 }
 

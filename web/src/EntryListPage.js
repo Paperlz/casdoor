@@ -31,9 +31,11 @@ class EntryListPage extends BaseListPage {
       name: `entry_${randomName}`,
       createdTime: moment().format(),
       displayName: `New Entry - ${randomName}`,
+      provider: "",
       url: "",
       token: "",
       application: "",
+      type: "",
       message: "",
     };
   }
@@ -142,6 +144,32 @@ class EntryListPage extends BaseListPage {
         key: "displayName",
         sorter: true,
         ...this.getColumnSearchProps("displayName"),
+      },
+      {
+        title: i18next.t("general:Provider"),
+        dataIndex: "provider",
+        key: "provider",
+        width: "160px",
+        sorter: true,
+        ...this.getColumnSearchProps("provider"),
+        render: (text, record) => {
+          if (!text) {
+            return null;
+          }
+          return (
+            <Link to={`/providers/${record.owner}/${text}`}>
+              {text}
+            </Link>
+          );
+        },
+      },
+      {
+        title: i18next.t("general:Type"),
+        dataIndex: "type",
+        key: "type",
+        width: "120px",
+        sorter: true,
+        ...this.getColumnSearchProps("type"),
       },
       {
         title: i18next.t("general:Listening URL"),
