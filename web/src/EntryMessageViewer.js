@@ -17,6 +17,8 @@ import {Alert, Button, Col, Descriptions, Drawer, Row, Table} from "antd";
 import * as Setting from "./Setting";
 import i18next from "i18next";
 import Editor from "./common/Editor";
+import SELinuxEntryViewer from "./SELinuxEntryViewer";
+import * as ProviderBackend from "./backend/ProviderBackend";
 
 class EntryMessageViewer extends React.Component {
   constructor(props) {
@@ -24,7 +26,59 @@ class EntryMessageViewer extends React.Component {
     this.state = {
       traceSpanDrawerVisible: false,
       selectedTraceSpan: null,
+      provider: null,
     };
+  }
+
+  componentDidMount() {
+    this.getProvider();
+  }
+
+  componentDidUpdate(prevProps) {
+    if (
+      prevProps.entry?.provider !== this.props.entry?.provider
+      || prevProps.entry?.owner !== this.props.entry?.owner
+      || prevProps.provider !== this.props.provider
+    ) {
+      this.getProvider();
+    }
+  }
+
+  getProvider() {
+    if (this.props.provider) {
+      if (this.state.provider !== null) {
+        this.setState({provider: null});
+      }
+      return;
+    }
+
+    const providerName = this.props.entry?.provider;
+    const owner = this.props.entry?.owner;
+
+    if (!providerName || !owner) {
+      if (this.state.provider !== null) {
+        this.setState({provider: null});
+      }
+      return;
+    }
+
+    ProviderBackend.getProvider(owner, providerName)
+      .then((res) => {
+        if (res.status === "ok") {
+          this.setState({
+            provider: res.data ?? null,
+          });
+        } else {
+          this.setState({
+            provider: null,
+          });
+        }
+      })
+      .catch(() => {
+        this.setState({
+          provider: null,
+        });
+      });
   }
 
   getEditorMaxWidth() {
@@ -383,13 +437,53 @@ class EntryMessageViewer extends React.Component {
   }
 
   renderMessageEditor() {
+    const message = this.formatJsonValue(this.props.entry?.message) || "";
+    const lang = this.shouldRenderTraceViewer() ? "json" : undefined;
+
     return (
       <Editor
-        value={this.formatJsonValue(this.props.entry?.message) || ""}
-        lang="json"
+        value={message}
+        lang={lang}
         readOnly
       />
     );
+  }
+
+  shouldRenderTraceViewer() {
+    return `${this.props.entry?.type ?? ""}`.trim().toLowerCase() === "trace";
+  }
+
+  getProviderViewerType() {
+    const provider = this.props.provider ?? this.state.provider;
+    if (!provider) {
+      return "";
+    }
+
+    const category = `${provider.category ?? ""}`.trim();
+    const type = `${provider.type ?? ""}`.trim();
+    const subType = `${provider.subType ?? ""}`.trim();
+
+    if (category === "Log" && type === "SELinux Log") {
+      return "selinux";
+    }
+
+    if (category === "Log" && type === "Agent" && subType === "OpenClaw") {
+      return "openclaw";
+    }
+
+    return "";
+  }
+
+  renderSpecializedViewer() {
+    switch (this.getProviderViewerType()) {
+    case "selinux":
+      return <SELinuxEntryViewer entry={this.props.entry} labelSpan={this.getLabelSpan()} contentSpan={this.getContentSpan()} />;
+    default:
+      if (this.shouldRenderTraceViewer()) {
+        return this.renderTraceSpans();
+      }
+      return null;
+    }
   }
 
   renderTraceSpans() {
@@ -579,7 +673,7 @@ class EntryMessageViewer extends React.Component {
   render() {
     return (
       <>
-        {this.renderTraceSpans()}
+        {this.renderSpecializedViewer()}
         <Row style={{marginTop: "20px"}} >
           <Col style={{marginTop: "5px"}} span={this.getLabelSpan()}>
             {i18next.t("payment:Message")}:
