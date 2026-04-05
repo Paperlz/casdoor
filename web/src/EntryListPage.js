@@ -119,7 +119,7 @@ class EntryListPage extends BaseListPage {
       .catch(() => {
         this.setState({
           providerMap: {},
-          providerOwner: owner,
+          providerOwner: "",
         });
         return {};
       });

@@ -43,13 +43,18 @@ class SELinuxEntryViewer extends React.Component {
     }
   }
 
+  escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
   extractValue(message, key) {
-    const quotedMatch = message.match(new RegExp(`${key}="([^"]*)"`, "i"));
+    const escapedKey = this.escapeRegExp(key);
+    const quotedMatch = message.match(new RegExp(`(?:^|\\s)${escapedKey}="([^"]*)"`, "i"));
     if (quotedMatch) {
       return quotedMatch[1];
     }
 
-    const plainMatch = message.match(new RegExp(`${key}=([^\\s]+)`, "i"));
+    const plainMatch = message.match(new RegExp(`(?:^|\\s)${escapedKey}=([^\\s]+)`, "i"));
     return plainMatch ? plainMatch[1] : "";
   }
 

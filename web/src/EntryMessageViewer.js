@@ -28,9 +28,12 @@ class EntryMessageViewer extends React.Component {
       selectedTraceSpan: null,
       provider: null,
     };
+    this.pendingProviderRequestKey = "";
+    this.isUnmounted = false;
   }
 
   componentDidMount() {
+    this.isUnmounted = false;
     this.getProvider();
   }
 
@@ -44,8 +47,14 @@ class EntryMessageViewer extends React.Component {
     }
   }
 
+  componentWillUnmount() {
+    this.isUnmounted = true;
+    this.pendingProviderRequestKey = "";
+  }
+
   getProvider() {
     if (this.props.provider) {
+      this.pendingProviderRequestKey = "";
       if (this.state.provider !== null) {
         this.setState({provider: null});
       }
@@ -56,14 +65,22 @@ class EntryMessageViewer extends React.Component {
     const owner = this.props.entry?.owner;
 
     if (!providerName || !owner) {
+      this.pendingProviderRequestKey = "";
       if (this.state.provider !== null) {
         this.setState({provider: null});
       }
       return;
     }
 
+    const requestKey = `${owner}/${providerName}`;
+    this.pendingProviderRequestKey = requestKey;
+
     ProviderBackend.getProvider(owner, providerName)
       .then((res) => {
+        if (this.isUnmounted || this.pendingProviderRequestKey !== requestKey) {
+          return;
+        }
+
         if (res.status === "ok") {
           this.setState({
             provider: res.data ?? null,
@@ -75,6 +92,10 @@ class EntryMessageViewer extends React.Component {
         }
       })
       .catch(() => {
+        if (this.isUnmounted || this.pendingProviderRequestKey !== requestKey) {
+          return;
+        }
+
         this.setState({
           provider: null,
         });
@@ -461,14 +482,9 @@ class EntryMessageViewer extends React.Component {
 
     const category = `${provider.category ?? ""}`.trim();
     const type = `${provider.type ?? ""}`.trim();
-    const subType = `${provider.subType ?? ""}`.trim();
 
     if (category === "Log" && type === "SELinux Log") {
       return "selinux";
-    }
-
-    if (category === "Log" && type === "Agent" && subType === "OpenClaw") {
-      return "openclaw";
     }
 
     return "";
