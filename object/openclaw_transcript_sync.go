@@ -145,8 +145,21 @@ func (w *openClawTranscriptSyncWorker) run() {
 }
 
 func (w *openClawTranscriptSyncWorker) syncOnce() {
+	if w.isStopping() {
+		return
+	}
+
 	if err := w.scanTranscriptDir(); err != nil {
 		fmt.Printf("OpenClaw transcript sync failed for provider %s: %v\n", w.provider.Name, err)
+	}
+}
+
+func (w *openClawTranscriptSyncWorker) isStopping() bool {
+	select {
+	case <-w.stopCh:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -163,6 +176,10 @@ func (w *openClawTranscriptSyncWorker) scanTranscriptDir() error {
 
 	seenPaths := map[string]struct{}{}
 	for _, entry := range entries {
+		if w.isStopping() {
+			return nil
+		}
+
 		if entry.IsDir() {
 			continue
 		}
@@ -194,6 +211,10 @@ func (w *openClawTranscriptSyncWorker) scanTranscriptDir() error {
 	}
 
 	for path := range w.fileStates {
+		if w.isStopping() {
+			return nil
+		}
+
 		if _, ok := seenPaths[path]; !ok {
 			delete(w.fileStates, path)
 		}
@@ -338,6 +359,10 @@ func (w *openClawTranscriptSyncWorker) scanTranscriptFile(path string) error {
 	reader := bufio.NewReader(file)
 
 	for {
+		if w.isStopping() {
+			return nil
+		}
+
 		lineBytes, readErr := reader.ReadBytes('\n')
 		if readErr != nil && readErr != io.EOF {
 			return readErr
