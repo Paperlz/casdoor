@@ -282,6 +282,10 @@ func resolveOpenClawHomeDir() (string, error) {
 		return expandOpenClawPath(explicitHome)
 	}
 
+	return resolveSystemHomeDir()
+}
+
+func resolveSystemHomeDir() (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
@@ -296,7 +300,7 @@ func expandOpenClawPath(input string) (string, error) {
 	}
 
 	if trimmed == "~" || strings.HasPrefix(trimmed, "~/") || strings.HasPrefix(trimmed, "~\\") {
-		homeDir, err := resolveOpenClawHomeDir()
+		homeDir, err := resolveSystemHomeDir()
 		if err != nil {
 			return "", err
 		}
