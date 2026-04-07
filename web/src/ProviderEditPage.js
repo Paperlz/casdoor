@@ -33,7 +33,6 @@ import {renderStorageProviderFields} from "./provider/StorageProviderFields";
 import {renderFaceIdProviderFields} from "./provider/FaceIDProviderFields";
 import {renderIDVerificationProviderFields} from "./provider/IDVerificationProviderFields";
 import {renderLogProviderFields} from "./provider/LogProviderFields";
-import moment from "moment";
 
 const {Option} = Select;
 const {TextArea} = Input;
@@ -110,56 +109,8 @@ class ProviderEditPage extends React.Component {
 
   UNSAFE_componentWillMount() {
     this.getOrganizations();
+    this.getProvider();
     this.getCerts(this.state.owner);
-    if (this.state.mode === "add") {
-      this.initProvider(this.props.location.provider || this.getNewProviderDraft());
-    } else {
-      this.getProvider();
-    }
-  }
-
-  getNewProviderDraft() {
-    return {
-      owner: this.state.owner,
-      name: this.state.providerName,
-      createdTime: moment().format(),
-      displayName: `New Provider - ${this.state.providerName.replace(/^provider_/, "")}`,
-      category: "OAuth",
-      type: "GitHub",
-      method: "Normal",
-      clientId: "",
-      clientSecret: "",
-      enableSignUp: true,
-      host: "",
-      port: 0,
-      providerUrl: "",
-    };
-  }
-
-  initProvider(sourceProvider) {
-    const provider = Setting.deepCopy(sourceProvider);
-    if (provider.type === "Custom HTTP Email") {
-      if (!provider.userMapping) {
-        provider.userMapping = provider.userMapping || defaultEmailMapping;
-      }
-      if (!provider.userMapping?.fromName) {
-        provider.userMapping = defaultEmailMapping;
-      }
-    } else if (provider.type === "Custom HTTP SMS") {
-      if (!provider.userMapping) {
-        provider.userMapping = provider.userMapping || defaultSmsMapping;
-      }
-      if (!provider.userMapping?.phoneNumber) {
-        provider.userMapping = defaultSmsMapping;
-      }
-    } else {
-      provider.userMapping = provider.userMapping || defaultUserMapping;
-    }
-    this.setState({
-      provider: provider,
-      nameNotUserEdited: isDefaultProviderName(provider.name),
-      displayNameNotUserEdited: isDefaultProviderDisplayName(provider.displayName),
-    });
   }
 
   getProvider() {
@@ -171,7 +122,29 @@ class ProviderEditPage extends React.Component {
         }
 
         if (res.status === "ok") {
-          this.initProvider(res.data);
+          const provider = res.data;
+          if (provider.type === "Custom HTTP Email") {
+            if (!provider.userMapping) {
+              provider.userMapping = provider.userMapping || defaultEmailMapping;
+            }
+            if (!provider.userMapping?.fromName) {
+              provider.userMapping = defaultEmailMapping;
+            }
+          } else if (provider.type === "Custom HTTP SMS") {
+            if (!provider.userMapping) {
+              provider.userMapping = provider.userMapping || defaultSmsMapping;
+            }
+            if (!provider.userMapping?.phoneNumber) {
+              provider.userMapping = defaultSmsMapping;
+            }
+          } else {
+            provider.userMapping = provider.userMapping || defaultUserMapping;
+          }
+          this.setState({
+            provider: provider,
+            nameNotUserEdited: isDefaultProviderName(provider.name),
+            displayNameNotUserEdited: isDefaultProviderDisplayName(provider.displayName),
+          });
         } else {
           Setting.showMessage("error", res.msg);
         }
@@ -1106,18 +1079,13 @@ class ProviderEditPage extends React.Component {
 
   submitProviderEdit(exitAfterSave) {
     const provider = Setting.deepCopy(this.state.provider);
-    const request = this.state.mode === "add"
-      ? ProviderBackend.addProvider(provider)
-      : ProviderBackend.updateProvider(this.state.owner, this.state.providerName, provider);
-
-    request
+    ProviderBackend.updateProvider(this.state.owner, this.state.providerName, provider)
       .then((res) => {
         if (res.status === "ok") {
           Setting.showMessage("success", i18next.t("general:Successfully saved"));
           this.setState({
             owner: this.state.provider.owner,
             providerName: this.state.provider.name,
-            mode: "edit",
           });
 
           if (exitAfterSave) {
@@ -1136,11 +1104,6 @@ class ProviderEditPage extends React.Component {
   }
 
   deleteProvider() {
-    if (this.state.mode === "add") {
-      this.props.history.push("/providers");
-      return;
-    }
-
     ProviderBackend.deleteProvider(this.state.provider)
       .then((res) => {
         if (res.status === "ok") {

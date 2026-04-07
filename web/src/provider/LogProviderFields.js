@@ -26,7 +26,7 @@ export function renderLogProviderFields(provider, updateProviderField) {
             {Setting.getLabel(i18next.t("provider:Host"), i18next.t("provider:Host - Tooltip"))} :
           </Col>
           <Col span={22} >
-            <Input value={provider.host} onChange={e => {
+            <Input value={provider.host} placeholder={i18next.t("provider:Host - Placeholder")} onChange={e => {
               updateProviderField("host", e.target.value);
             }} />
           </Col>
@@ -36,17 +36,17 @@ export function renderLogProviderFields(provider, updateProviderField) {
             {Setting.getLabel(i18next.t("provider:Agent ID"), i18next.t("provider:Agent ID - Tooltip"))} :
           </Col>
           <Col span={22} >
-            <Input value={provider.title} onChange={e => {
+            <Input value={provider.title} placeholder="main" onChange={e => {
               updateProviderField("title", e.target.value);
             }} />
           </Col>
         </Row>
         <Row style={{marginTop: "20px"}} >
           <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
-            {i18next.t("general:Path")} :
+            {Setting.getLabel(i18next.t("provider:Transcript Path (Optional)"), i18next.t("provider:Transcript Path (Optional) - Tooltip"))} :
           </Col>
           <Col span={22} >
-            <Input value={provider.endpoint} onChange={e => {
+            <Input value={provider.endpoint} placeholder={i18next.t("provider:Transcript Path (Optional) - Placeholder")} onChange={e => {
               updateProviderField("endpoint", e.target.value);
             }} />
           </Col>
