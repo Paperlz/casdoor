@@ -134,20 +134,20 @@ class ProviderEditPage extends React.Component {
     const provider = Setting.deepCopy(sourceProvider);
     if (provider.type === "Custom HTTP Email") {
       if (!provider.userMapping) {
-        provider.userMapping = provider.userMapping || defaultEmailMapping;
+        provider.userMapping = Setting.deepCopy(defaultEmailMapping);
       }
       if (!provider.userMapping?.fromName) {
-        provider.userMapping = defaultEmailMapping;
+        provider.userMapping = Setting.deepCopy(defaultEmailMapping);
       }
     } else if (provider.type === "Custom HTTP SMS") {
       if (!provider.userMapping) {
-        provider.userMapping = provider.userMapping || defaultSmsMapping;
+        provider.userMapping = Setting.deepCopy(defaultSmsMapping);
       }
       if (!provider.userMapping?.phoneNumber) {
-        provider.userMapping = defaultSmsMapping;
+        provider.userMapping = Setting.deepCopy(defaultSmsMapping);
       }
     } else {
-      provider.userMapping = provider.userMapping || defaultUserMapping;
+      provider.userMapping = provider.userMapping || Setting.deepCopy(defaultUserMapping);
     }
     this.setState({
       provider: provider,
