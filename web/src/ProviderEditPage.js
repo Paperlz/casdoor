@@ -1126,7 +1126,9 @@ class ProviderEditPage extends React.Component {
           }
         } else {
           Setting.showMessage("error", `${i18next.t("general:Failed to save")}: ${res.msg}`);
-          this.updateProviderField("name", this.state.providerName);
+          if (this.state.mode !== "add") {
+            this.updateProviderField("name", this.state.providerName);
+          }
         }
       })
       .catch(error => {
