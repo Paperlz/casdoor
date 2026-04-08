@@ -20,6 +20,7 @@ import * as OrganizationBackend from "./backend/OrganizationBackend";
 import * as CertBackend from "./backend/CertBackend";
 import * as Setting from "./Setting";
 import i18next from "i18next";
+import moment from "moment";
 import {renderNotificationProviderFields} from "./provider/NotificationProviderFields";
 import {renderEmailProviderFields} from "./provider/EmailProviderFields";
 import {renderSmsProviderFields} from "./provider/SmsProviderFields";
@@ -1101,6 +1102,9 @@ class ProviderEditPage extends React.Component {
 
   submitProviderEdit(exitAfterSave) {
     const provider = Setting.deepCopy(this.state.provider);
+    if (this.state.mode === "add") {
+      provider.createdTime = moment().format();
+    }
     const request = this.state.mode === "add"
       ? ProviderBackend.addProvider(provider)
       : ProviderBackend.updateProvider(this.state.owner, this.state.providerName, provider);
