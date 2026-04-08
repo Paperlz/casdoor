@@ -15,7 +15,6 @@
 import React from "react";
 import {Link} from "react-router-dom";
 import {Button, Table} from "antd";
-import moment from "moment";
 import * as Setting from "./Setting";
 import * as ProviderBackend from "./backend/ProviderBackend";
 import * as Provider from "./auth/Provider";
@@ -36,23 +35,8 @@ class ProviderListPage extends BaseListPage {
   }
 
   newProvider() {
-    const randomName = Setting.getRandomName();
     const owner = Setting.isDefaultOrganizationSelected(this.props.account) ? this.state.owner : Setting.getRequestOrganization(this.props.account);
-    return {
-      owner: owner,
-      name: `provider_${randomName}`,
-      createdTime: moment().format(),
-      displayName: `New Provider - ${randomName}`,
-      category: "OAuth",
-      type: "GitHub",
-      method: "Normal",
-      clientId: "",
-      clientSecret: "",
-      enableSignUp: true,
-      host: "",
-      port: 0,
-      providerUrl: "",
-    };
+    return ProviderBackend.buildNewProviderDraft(owner);
   }
 
   addProvider() {

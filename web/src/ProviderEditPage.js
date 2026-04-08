@@ -33,7 +33,6 @@ import {renderStorageProviderFields} from "./provider/StorageProviderFields";
 import {renderFaceIdProviderFields} from "./provider/FaceIDProviderFields";
 import {renderIDVerificationProviderFields} from "./provider/IDVerificationProviderFields";
 import {renderLogProviderFields} from "./provider/LogProviderFields";
-import moment from "moment";
 
 const {Option} = Select;
 const {TextArea} = Input;
@@ -128,21 +127,7 @@ class ProviderEditPage extends React.Component {
   }
 
   getNewProviderDraft() {
-    return {
-      owner: this.state.owner,
-      name: this.state.providerName,
-      createdTime: moment().format(),
-      displayName: `New Provider - ${this.state.providerName.replace(/^provider_/, "")}`,
-      category: "OAuth",
-      type: "GitHub",
-      method: "Normal",
-      clientId: "",
-      clientSecret: "",
-      enableSignUp: true,
-      host: "",
-      port: 0,
-      providerUrl: "",
-    };
+    return ProviderBackend.buildNewProviderDraft(this.state.owner, this.state.providerName);
   }
 
   initProvider(sourceProvider) {

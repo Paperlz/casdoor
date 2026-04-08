@@ -13,6 +13,27 @@
 // limitations under the License.
 
 import * as Setting from "../Setting";
+import moment from "moment";
+
+export function buildNewProviderDraft(owner, providerName = "") {
+  const randomName = providerName.startsWith("provider_") ? providerName.slice("provider_".length) : Setting.getRandomName();
+  const name = providerName || `provider_${randomName}`;
+  return {
+    owner: owner,
+    name: name,
+    createdTime: moment().format(),
+    displayName: `New Provider - ${randomName}`,
+    category: "OAuth",
+    type: "GitHub",
+    method: "Normal",
+    clientId: "",
+    clientSecret: "",
+    enableSignUp: true,
+    host: "",
+    port: 0,
+    providerUrl: "",
+  };
+}
 
 export function getProviders(owner, page = "", pageSize = "", field = "", value = "", sortField = "", sortOrder = "") {
   return fetch(`${Setting.ServerUrl}/api/get-providers?owner=${owner}&p=${page}&pageSize=${pageSize}&field=${field}&value=${value}&sortField=${sortField}&sortOrder=${sortOrder}`, {
