@@ -3,7 +3,40 @@ export function isOpenClawSessionEntry(entry, provider) {
     return false;
   }
 
-  return provider?.category === "Log" && provider?.type === "Agent" && provider?.subType === "OpenClaw";
+  if (provider?.category === "Log" && provider?.type === "Agent" && provider?.subType === "OpenClaw") {
+    return true;
+  }
+
+  if (provider) {
+    return false;
+  }
+
+  const payload = parseOpenClawBehaviorPayload(entry.message);
+  return Boolean(payload?.sessionId && payload?.entryId && payload?.kind);
+}
+
+function parseOpenClawBehaviorPayload(message) {
+  if (!message) {
+    return null;
+  }
+
+  const source = typeof message === "string" ? message : JSON.stringify(message);
+  if (!source) {
+    return null;
+  }
+
+  try {
+    const payload = JSON.parse(source);
+    const kind = `${payload?.kind ?? ""}`.trim();
+    const sessionId = `${payload?.sessionId ?? ""}`.trim();
+    const entryId = `${payload?.entryId ?? ""}`.trim();
+    if (!kind || !sessionId || !entryId) {
+      return null;
+    }
+    return payload;
+  } catch (e) {
+    return null;
+  }
 }
 
 export function getOpenClawNodeTarget(node) {
@@ -91,13 +124,32 @@ function getNodeTitle(node) {
 }
 
 function compareNodes(left, right) {
-  const leftTimestamp = `${left?.timestamp ?? ""}`;
-  const rightTimestamp = `${right?.timestamp ?? ""}`;
-  if (leftTimestamp !== rightTimestamp) {
+  const leftTimestamp = `${left?.timestamp ?? ""}`.trim();
+  const rightTimestamp = `${right?.timestamp ?? ""}`.trim();
+  const leftMillis = parseTimestampMillis(leftTimestamp);
+  const rightMillis = parseTimestampMillis(rightTimestamp);
+  if (leftMillis !== null && rightMillis !== null) {
+    if (leftMillis !== rightMillis) {
+      return leftMillis - rightMillis;
+    }
+  } else if (leftTimestamp !== rightTimestamp) {
     return leftTimestamp.localeCompare(rightTimestamp);
   }
 
   return `${left?.id ?? ""}`.localeCompare(`${right?.id ?? ""}`);
+}
+
+function parseTimestampMillis(timestamp) {
+  if (!timestamp) {
+    return null;
+  }
+
+  const milliseconds = Date.parse(timestamp);
+  if (Number.isNaN(milliseconds)) {
+    return null;
+  }
+
+  return milliseconds;
 }
 
 function buildTreeIndexes(graph) {
