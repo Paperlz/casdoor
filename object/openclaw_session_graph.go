@@ -160,7 +160,6 @@ func collectOpenClawSessionGraphRecords(anchorEntry *Entry, anchorPayload openCl
 		return nil, fmt.Errorf("anchor entry is nil")
 	}
 
-	sessionMarker := fmt.Sprintf("\"sessionId\":\"%s\"", strings.TrimSpace(anchorPayload.SessionID))
 	entries := []*Entry{}
 	query := ormer.Engine.Where("owner = ? and type = ?", anchorEntry.Owner, "session")
 	if providerName := strings.TrimSpace(anchorEntry.Provider); providerName != "" {
@@ -168,13 +167,17 @@ func collectOpenClawSessionGraphRecords(anchorEntry *Entry, anchorPayload openCl
 	}
 
 	if err := query.
-		And("message like ?", fmt.Sprintf("%%%s%%", sessionMarker)).
 		Asc("created_time").
 		Asc("name").
 		Find(&entries); err != nil {
 		return nil, err
 	}
 
+	return filterOpenClawSessionGraphRecords(anchorEntry, anchorPayload, entries), nil
+}
+
+func filterOpenClawSessionGraphRecords(anchorEntry *Entry, anchorPayload openClawBehaviorPayload, entries []*Entry) []openClawSessionGraphRecord {
+	targetSessionID := strings.TrimSpace(anchorPayload.SessionID)
 	records := make([]openClawSessionGraphRecord, 0, len(entries)+1)
 	hasAnchor := false
 	for _, candidate := range entries {
@@ -186,7 +189,7 @@ func collectOpenClawSessionGraphRecords(anchorEntry *Entry, anchorPayload openCl
 		if err != nil {
 			continue
 		}
-		if payload.SessionID != anchorPayload.SessionID {
+		if payload.SessionID != targetSessionID {
 			continue
 		}
 
@@ -199,7 +202,7 @@ func collectOpenClawSessionGraphRecords(anchorEntry *Entry, anchorPayload openCl
 		}
 	}
 
-	if !hasAnchor {
+	if !hasAnchor && anchorEntry != nil {
 		records = append(records, openClawSessionGraphRecord{
 			Entry:   anchorEntry,
 			Payload: anchorPayload,
@@ -217,7 +220,7 @@ func collectOpenClawSessionGraphRecords(anchorEntry *Entry, anchorPayload openCl
 		return records[i].Entry.Name < records[j].Entry.Name
 	})
 
-	return records, nil
+	return records
 }
 
 func buildOpenClawSessionGraphFromEntries(anchorPayload openClawBehaviorPayload, anchorEntryName string, records []openClawSessionGraphRecord) *OpenClawSessionGraph {

@@ -1,3 +1,5 @@
+const openClawPayloadKinds = new Set(["task", "tool_call", "tool_result", "final"]);
+
 export function isOpenClawSessionEntry(entry, provider) {
   if (!entry || `${entry.type ?? ""}`.trim().toLowerCase() !== "session") {
     return false;
@@ -30,7 +32,7 @@ function parseOpenClawBehaviorPayload(message) {
     const kind = `${payload?.kind ?? ""}`.trim();
     const sessionId = `${payload?.sessionId ?? ""}`.trim();
     const entryId = `${payload?.entryId ?? ""}`.trim();
-    if (!kind || !sessionId || !entryId) {
+    if (!kind || !sessionId || !entryId || !openClawPayloadKinds.has(kind)) {
       return null;
     }
     return payload;

@@ -429,6 +429,7 @@ func buildOpenClawTranscriptEntries(provider *Provider, sessionID string, entry 
 		items := parseContentItems(message.Content)
 		assistantText := truncateText(extractMessageText(message.Content), 2000)
 		toolEntries := []*Entry{}
+		storedAssistantText := false
 		for _, item := range items {
 			if item.Type != "toolCall" {
 				continue
@@ -436,19 +437,23 @@ func buildOpenClawTranscriptEntries(provider *Provider, sessionID string, entry 
 			context := extractOpenClawToolContext(item)
 			toolContexts[item.ID] = context
 			payload := openClawBehaviorPayload{
-				Summary:       truncateText(buildToolCallSummary(context), 100),
-				Kind:          "tool_call",
-				SessionID:     sessionID,
-				EntryID:       entry.ID,
-				ToolCallID:    item.ID,
-				ParentID:      entry.ParentID,
-				Timestamp:     normalizeOpenClawTimestamp(entry.Timestamp, message.Timestamp),
-				Tool:          context.Tool,
-				Query:         context.Query,
-				URL:           context.URL,
-				Path:          context.Path,
-				AssistantText: assistantText,
-				Text:          truncateText(context.Command, 500),
+				Summary:    truncateText(buildToolCallSummary(context), 100),
+				Kind:       "tool_call",
+				SessionID:  sessionID,
+				EntryID:    entry.ID,
+				ToolCallID: item.ID,
+				ParentID:   entry.ParentID,
+				Timestamp:  normalizeOpenClawTimestamp(entry.Timestamp, message.Timestamp),
+				Tool:       context.Tool,
+				Query:      context.Query,
+				URL:        context.URL,
+				Path:       context.Path,
+				Text:       truncateText(context.Command, 500),
+			}
+			if !storedAssistantText {
+				// Avoid duplicating the same assistant text on every tool-call row.
+				payload.AssistantText = assistantText
+				storedAssistantText = true
 			}
 			identity := fmt.Sprintf("%s/%s", entry.ID, item.ID)
 			toolEntries = append(toolEntries, newOpenClawTranscriptEntry(provider, sessionID, "tool_call", identity, payload))
