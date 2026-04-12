@@ -259,7 +259,8 @@ class OpenClawSessionGraphViewer extends React.Component {
   componentDidUpdate(prevProps) {
     if (
       prevProps.entry?.owner !== this.props.entry?.owner ||
-      prevProps.entry?.name !== this.props.entry?.name
+      prevProps.entry?.name !== this.props.entry?.name ||
+      prevProps.provider !== this.props.provider
     ) {
       this.loadGraph();
     }
