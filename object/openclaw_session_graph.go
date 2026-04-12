@@ -454,6 +454,9 @@ func addOpenClawControlFlowEdges(builder *openClawSessionGraphBuilder, assistant
 		}
 		for _, downstreamNodeID := range downstreamNodeIDs {
 			builder.addEdge(joinID, downstreamNodeID)
+			if downstreamNode := builder.nodes[downstreamNodeID]; downstreamNode != nil {
+				downstreamNode.ParentID = joinID
+			}
 			joinedDownstreamNodeIDs[downstreamNodeID] = struct{}{}
 		}
 	}
