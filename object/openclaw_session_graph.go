@@ -44,6 +44,7 @@ type OpenClawSessionGraphNode struct {
 	Path             string `json:"path,omitempty"`
 	OK               *bool  `json:"ok,omitempty"`
 	Error            string `json:"error,omitempty"`
+	Detail           string `json:"detail,omitempty"`
 	Text             string `json:"text,omitempty"`
 	IsAnchor         bool   `json:"isAnchor"`
 }
@@ -143,6 +144,7 @@ func parseOpenClawSessionGraphPayload(entry *Entry) (openClawBehaviorPayload, er
 	payload.Path = strings.TrimSpace(payload.Path)
 	payload.Error = strings.TrimSpace(payload.Error)
 	payload.AssistantText = strings.TrimSpace(payload.AssistantText)
+	payload.Detail = strings.TrimSpace(payload.Detail)
 	payload.Text = strings.TrimSpace(payload.Text)
 	payload.Timestamp = strings.TrimSpace(firstNonEmpty(payload.Timestamp, entry.CreatedTime))
 
@@ -265,6 +267,7 @@ func buildOpenClawSessionGraphFromEntries(anchorPayload openClawBehaviorPayload,
 				Query:      payload.Query,
 				URL:        payload.URL,
 				Path:       payload.Path,
+				Detail:     payload.Detail,
 				Text:       payload.Text,
 			})
 			storedNode := builder.nodes[nodeID]
@@ -362,6 +365,7 @@ func buildOpenClawSessionGraphFromEntries(anchorPayload openClawBehaviorPayload,
 			Path:             payload.Path,
 			OK:               cloneBoolPointer(payload.OK),
 			Error:            payload.Error,
+			Detail:           payload.Detail,
 			Text:             payload.Text,
 		})
 		appendGraphNodeEntryName(nodeIDsByEntryName, record.Entry, payload.EntryID)
@@ -658,6 +662,7 @@ func (b *openClawSessionGraphBuilder) addNode(node *OpenClawSessionGraphNode) {
 	cloned.URL = strings.TrimSpace(cloned.URL)
 	cloned.Path = strings.TrimSpace(cloned.Path)
 	cloned.Error = strings.TrimSpace(cloned.Error)
+	cloned.Detail = strings.TrimSpace(cloned.Detail)
 	cloned.Text = strings.TrimSpace(cloned.Text)
 	cloned.OK = cloneBoolPointer(cloned.OK)
 	b.nodes[cloned.ID] = &cloned
@@ -748,6 +753,7 @@ func mergeOpenClawGraphNode(current, next *OpenClawSessionGraphNode) {
 	current.URL = firstNonEmpty(current.URL, next.URL)
 	current.Path = firstNonEmpty(current.Path, next.Path)
 	current.Error = firstNonEmpty(current.Error, next.Error)
+	current.Detail = firstNonEmpty(current.Detail, next.Detail)
 	current.Text = firstNonEmpty(current.Text, next.Text)
 	current.OK = mergeBoolPointers(current.OK, next.OK)
 	current.IsAnchor = current.IsAnchor || next.IsAnchor

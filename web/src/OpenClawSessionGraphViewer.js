@@ -497,6 +497,11 @@ class OpenClawSessionGraphViewer extends React.Component {
             <Descriptions.Item label={i18next.t("general:Tool")}>
               {node.tool || "-"}
             </Descriptions.Item>
+            {node.detail ? (
+              <Descriptions.Item label={i18next.t("entry:Detail")}>
+                {this.renderNodeText(node.detail)}
+              </Descriptions.Item>
+            ) : null}
             <Descriptions.Item label={i18next.t("entry:Query")}>
               {this.renderNodeText(node.query)}
             </Descriptions.Item>

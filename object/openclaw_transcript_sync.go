@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
 	"strings"
@@ -17,6 +18,18 @@ import (
 )
 
 const openClawTranscriptSyncInterval = 10 * time.Second
+
+const (
+	openClawTranscriptSummaryMax          = 100
+	openClawTranscriptTaskTextMax         = 2000
+	openClawTranscriptAssistantTextMax    = 2000
+	openClawTranscriptFinalTextMax        = 2000
+	openClawTranscriptToolCommandMax      = 500
+	openClawTranscriptToolCallDetailMax   = 16 * 1024
+	openClawTranscriptToolResultTextMax   = 64 * 1024
+	openClawTranscriptToolResultDetailMax = 16 * 1024
+	openClawTranscriptErrorTextMax        = 500
+)
 
 var (
 	openClawTranscriptWorkers   = map[string]*openClawTranscriptSyncWorker{}
@@ -39,22 +52,22 @@ type openClawTranscriptFileState struct {
 }
 
 type openClawTranscriptEntry struct {
-	Type      string                 `json:"type"`
-	ID        string                 `json:"id"`
-	ParentID  string                 `json:"parentId"`
-	Timestamp string                 `json:"timestamp"`
-	Message   *openClawMessage       `json:"message"`
-	Details   map[string]interface{} `json:"details"`
+	Type      string           `json:"type"`
+	ID        string           `json:"id"`
+	ParentID  string           `json:"parentId"`
+	Timestamp string           `json:"timestamp"`
+	Message   *openClawMessage `json:"message"`
 }
 
 type openClawMessage struct {
-	Role       string          `json:"role"`
-	Content    json.RawMessage `json:"content"`
-	StopReason string          `json:"stopReason"`
-	ToolCallID string          `json:"toolCallId"`
-	ToolName   string          `json:"toolName"`
-	IsError    bool            `json:"isError"`
-	Timestamp  int64           `json:"timestamp"`
+	Role       string                 `json:"role"`
+	Content    json.RawMessage        `json:"content"`
+	StopReason string                 `json:"stopReason"`
+	ToolCallID string                 `json:"toolCallId"`
+	ToolName   string                 `json:"toolName"`
+	IsError    bool                   `json:"isError"`
+	Timestamp  int64                  `json:"timestamp"`
+	Details    map[string]interface{} `json:"details"`
 }
 
 type openClawContentItem struct {
@@ -80,6 +93,7 @@ type openClawBehaviorPayload struct {
 	OK            *bool  `json:"ok,omitempty"`
 	Error         string `json:"error,omitempty"`
 	AssistantText string `json:"assistantText,omitempty"`
+	Detail        string `json:"detail,omitempty"`
 	Text          string `json:"text,omitempty"`
 }
 
@@ -431,17 +445,17 @@ func buildOpenClawTranscriptEntries(provider *Provider, sessionID string, entry 
 		}
 
 		return []*Entry{newOpenClawTranscriptEntry(provider, sessionID, "task", entry.ID, openClawBehaviorPayload{
-			Summary:   truncateText(fmt.Sprintf("task: %s", text), 100),
+			Summary:   truncateText(fmt.Sprintf("task: %s", text), openClawTranscriptSummaryMax),
 			Kind:      "task",
 			SessionID: sessionID,
 			EntryID:   entry.ID,
 			ParentID:  entry.ParentID,
 			Timestamp: normalizeOpenClawTimestamp(entry.Timestamp, message.Timestamp),
-			Text:      truncateText(text, 2000),
+			Text:      truncateText(text, openClawTranscriptTaskTextMax),
 		})}
 	case "assistant":
 		items := parseContentItems(message.Content)
-		assistantText := truncateText(extractMessageText(message.Content), 2000)
+		assistantText := truncateText(extractMessageText(message.Content), openClawTranscriptAssistantTextMax)
 		toolEntries := []*Entry{}
 		storedAssistantText := false
 		for _, item := range items {
@@ -451,7 +465,7 @@ func buildOpenClawTranscriptEntries(provider *Provider, sessionID string, entry 
 			context := extractOpenClawToolContext(item)
 			toolContexts[item.ID] = context
 			payload := openClawBehaviorPayload{
-				Summary:    truncateText(buildToolCallSummary(context), 100),
+				Summary:    truncateText(buildToolCallSummary(context), openClawTranscriptSummaryMax),
 				Kind:       "tool_call",
 				SessionID:  sessionID,
 				EntryID:    entry.ID,
@@ -462,7 +476,8 @@ func buildOpenClawTranscriptEntries(provider *Provider, sessionID string, entry 
 				Query:      context.Query,
 				URL:        context.URL,
 				Path:       context.Path,
-				Text:       truncateText(context.Command, 500),
+				Detail:     marshalOpenClawJSON(item.Arguments, openClawTranscriptToolCallDetailMax),
+				Text:       truncateText(context.Command, openClawTranscriptToolCommandMax),
 			}
 			if !storedAssistantText {
 				// Avoid duplicating the same assistant text on every tool-call row.
@@ -484,13 +499,13 @@ func buildOpenClawTranscriptEntries(provider *Provider, sessionID string, entry 
 			return nil
 		}
 		return []*Entry{newOpenClawTranscriptEntry(provider, sessionID, "final", entry.ID, openClawBehaviorPayload{
-			Summary:   truncateText(fmt.Sprintf("final: %s", text), 100),
+			Summary:   truncateText(fmt.Sprintf("final: %s", text), openClawTranscriptSummaryMax),
 			Kind:      "final",
 			SessionID: sessionID,
 			EntryID:   entry.ID,
 			ParentID:  entry.ParentID,
 			Timestamp: normalizeOpenClawTimestamp(entry.Timestamp, message.Timestamp),
-			Text:      truncateText(text, 2000),
+			Text:      truncateText(text, openClawTranscriptFinalTextMax),
 		})}
 	case "toolResult":
 		payload, ok := buildToolResultPayload(sessionID, entry, toolContexts[message.ToolCallID])
@@ -510,14 +525,15 @@ func buildToolResultPayload(sessionID string, entry openClawTranscriptEntry, too
 	}
 
 	okValue, errorText := resolveToolResultStatus(entry)
-	text := summarizeToolResultText(extractMessageText(message.Content), okValue)
+	rawText := extractMessageText(message.Content)
+	summaryText := summarizeToolResultText(rawText, okValue)
 	toolName := firstNonEmpty(toolContext.Tool, message.ToolName)
-	if toolName == "" && text == "" && errorText == "" {
+	if toolName == "" && rawText == "" && errorText == "" {
 		return openClawBehaviorPayload{}, false
 	}
 
 	return openClawBehaviorPayload{
-		Summary:    truncateText(buildToolResultSummary(toolName, toolContext, okValue, errorText, text), 100),
+		Summary:    truncateText(buildToolResultSummary(toolName, toolContext, okValue, errorText, summaryText), openClawTranscriptSummaryMax),
 		Kind:       "tool_result",
 		SessionID:  sessionID,
 		EntryID:    entry.ID,
@@ -527,10 +543,11 @@ func buildToolResultPayload(sessionID string, entry openClawTranscriptEntry, too
 		Tool:       toolName,
 		Query:      toolContext.Query,
 		URL:        toolContext.URL,
-		Path:       firstNonEmpty(toolContext.Path, extractWriteSuccessPath(text)),
+		Path:       firstNonEmpty(toolContext.Path, extractWriteSuccessPath(rawText)),
 		OK:         &okValue,
-		Error:      truncateText(errorText, 500),
-		Text:       truncateText(text, 2000),
+		Error:      truncateText(errorText, openClawTranscriptErrorTextMax),
+		Detail:     marshalOpenClawJSON(message.Details, openClawTranscriptToolResultDetailMax),
+		Text:       truncateText(rawText, openClawTranscriptToolResultTextMax),
 	}, true
 }
 
@@ -547,11 +564,29 @@ func newOpenClawTranscriptEntry(provider *Provider, sessionID string, entryKind 
 		Name:        fmt.Sprintf("oc_%s", util.GetMd5Hash(nameSource)),
 		CreatedTime: createdTime,
 		UpdatedTime: createdTime,
-		DisplayName: truncateText(payload.Summary, 100),
+		DisplayName: truncateText(payload.Summary, openClawTranscriptSummaryMax),
 		Provider:    provider.Name,
 		Type:        "session",
 		Message:     string(body),
 	}
+}
+
+func marshalOpenClawJSON(value interface{}, max int) string {
+	if isEmptyOpenClawJSONValue(value) {
+		return ""
+	}
+
+	body, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		return ""
+	}
+
+	text := strings.TrimSpace(string(body))
+	if text == "" || text == "null" || text == "{}" || text == "[]" {
+		return ""
+	}
+
+	return truncateText(text, max)
 }
 
 func addOpenClawTranscriptEntry(entry *Entry) error {
@@ -662,14 +697,23 @@ func buildToolCallSummary(context openClawToolContext) string {
 }
 
 func resolveToolResultStatus(entry openClawTranscriptEntry) (bool, string) {
-	if entry.Message != nil && entry.Message.IsError {
-		return false, stringifyOpenClawArg(entry.Details["error"])
-	}
-	if status, ok := entry.Details["status"].(string); ok && strings.EqualFold(status, "error") {
-		return false, stringifyOpenClawArg(entry.Details["error"])
+	message := entry.Message
+	details := map[string]interface{}(nil)
+	if message != nil {
+		details = message.Details
 	}
 
-	text := strings.TrimSpace(extractMessageText(entry.Message.Content))
+	if message != nil && message.IsError {
+		return false, stringifyOpenClawArg(details["error"])
+	}
+	if status, ok := details["status"].(string); ok && strings.EqualFold(status, "error") {
+		return false, stringifyOpenClawArg(details["error"])
+	}
+
+	text := ""
+	if message != nil {
+		text = strings.TrimSpace(extractMessageText(message.Content))
+	}
 	if strings.HasPrefix(text, "{") {
 		var payload map[string]interface{}
 		if err := json.Unmarshal([]byte(text), &payload); err == nil {
@@ -679,7 +723,28 @@ func resolveToolResultStatus(entry openClawTranscriptEntry) (bool, string) {
 		}
 	}
 
-	return true, stringifyOpenClawArg(entry.Details["error"])
+	return true, stringifyOpenClawArg(details["error"])
+}
+
+func isEmptyOpenClawJSONValue(value interface{}) bool {
+	if value == nil {
+		return true
+	}
+
+	rv := reflect.ValueOf(value)
+	switch rv.Kind() {
+	case reflect.Interface, reflect.Pointer:
+		if rv.IsNil() {
+			return true
+		}
+		return isEmptyOpenClawJSONValue(rv.Elem().Interface())
+	case reflect.Map, reflect.Slice:
+		return rv.IsNil() || rv.Len() == 0
+	case reflect.Array, reflect.String:
+		return rv.Len() == 0
+	}
+
+	return false
 }
 
 func summarizeToolResultText(text string, okValue bool) string {
