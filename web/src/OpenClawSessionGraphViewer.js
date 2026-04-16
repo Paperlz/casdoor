@@ -126,7 +126,7 @@ function OpenClawNodeHoverCard({node}) {
   if (node.tool) {
     rows.push({
       key: "tool",
-      label: i18next.t("entry:Tool"),
+      label: i18next.t("general:Tool"),
       value: node.tool,
     });
   }
@@ -497,13 +497,13 @@ class OpenClawSessionGraphViewer extends React.Component {
     );
   }
 
-  renderNodeText(value) {
+  renderNodeText(value, style = {}) {
     if (!value) {
       return "-";
     }
 
     return (
-      <div style={{whiteSpace: "pre-wrap", wordBreak: "break-word"}}>
+      <div style={{whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "anywhere", maxWidth: "100%", ...style}}>
         {value}
       </div>
     );
@@ -564,20 +564,25 @@ class OpenClawSessionGraphViewer extends React.Component {
     const isCurrentNode = normalizeNodeKey(node?.id) === normalizeNodeKey(currentNode?.id);
     const target = getOpenClawNodeTarget(node);
     const displayTarget = target && target !== node?.tool ? target : "";
+    const panelMaxHeight = Setting.isMobile() ? 360 : 420;
 
     return (
       <div
         style={{
           display: "grid",
+          gridTemplateRows: "auto minmax(0, 1fr)",
           gap: 10,
-          height: "100%",
+          maxHeight: panelMaxHeight,
+          minHeight: 0,
+          minWidth: 0,
           padding: 12,
           border: "1px solid #dbe3ef",
           borderRadius: 12,
           background: "#fafcff",
+          overflow: "hidden",
         }}
       >
-        <div style={{display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12}}>
+        <div style={{display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, minWidth: 0}}>
           <div style={{display: "flex", alignItems: "center", gap: 8, minWidth: 0, flexWrap: "wrap"}}>
             <Text strong>{title}</Text>
             {node ? getStatusTag(node) : null}
@@ -585,6 +590,7 @@ class OpenClawSessionGraphViewer extends React.Component {
           {node && !isCurrentNode ? (
             <Button
               size="small"
+              style={{flex: "none"}}
               onClick={() => this.setState({selectedNode: node})}
             >
               {i18next.t("entry:Open linked node")}
@@ -592,37 +598,31 @@ class OpenClawSessionGraphViewer extends React.Component {
           ) : null}
         </div>
         {node ? (
-          <div style={{display: "grid", rowGap: 8}}>
-            <div>
+          <div style={{display: "grid", rowGap: 8, minHeight: 0, minWidth: 0, overflowY: "auto", overflowX: "hidden", paddingRight: 4}}>
+            <div style={{minWidth: 0}}>
               <Text type="secondary">{i18next.t("entry:Summary")}: </Text>
-              <Text style={{wordBreak: "break-word"}}>{node.summary || "-"}</Text>
+              <Text style={{wordBreak: "break-word", overflowWrap: "anywhere"}}>{node.summary || "-"}</Text>
             </div>
-            <div>
+            <div style={{minWidth: 0}}>
               <Text type="secondary">{i18next.t("general:Tool")}: </Text>
               <Text>{node.tool || "-"}</Text>
             </div>
             {displayTarget ? (
-              <div>
+              <div style={{minWidth: 0}}>
                 <Text type="secondary">{i18next.t("entry:Target")}: </Text>
-                <Text style={{wordBreak: "break-word"}}>{displayTarget}</Text>
+                <Text style={{wordBreak: "break-word", overflowWrap: "anywhere"}}>{displayTarget}</Text>
               </div>
             ) : null}
             {node.error ? (
-              <div>
+              <div style={{minWidth: 0}}>
                 <Text type="secondary">{i18next.t("general:Error")}: </Text>
                 {this.renderNodeText(node.error)}
               </div>
             ) : null}
             {node.text ? (
-              <div>
+              <div style={{minWidth: 0}}>
                 <Text type="secondary">{i18next.t("entry:Text")}: </Text>
                 {this.renderNodeText(node.text)}
-              </div>
-            ) : null}
-            {node.detail ? (
-              <div>
-                <Text type="secondary">{i18next.t("entry:Detail")}: </Text>
-                {this.renderNodeText(node.detail)}
               </div>
             ) : null}
           </div>
@@ -645,6 +645,7 @@ class OpenClawSessionGraphViewer extends React.Component {
           display: "grid",
           gridTemplateColumns: Setting.isMobile() ? "1fr" : "repeat(2, minmax(0, 1fr))",
           gap: 12,
+          minWidth: 0,
         }}
       >
         {this.renderToolPairPanel(i18next.t("entry:Call"), callNode, node)}
@@ -707,11 +708,6 @@ class OpenClawSessionGraphViewer extends React.Component {
             {toolPair ? (
               <Descriptions.Item label={i18next.t("entry:Call / Result")}>
                 {toolPair}
-              </Descriptions.Item>
-            ) : null}
-            {node.detail ? (
-              <Descriptions.Item label={i18next.t("entry:Detail")}>
-                {this.renderNodeText(node.detail)}
               </Descriptions.Item>
             ) : null}
             <Descriptions.Item label={i18next.t("entry:Query")}>
